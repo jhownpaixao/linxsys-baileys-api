@@ -173,10 +173,10 @@ exports.ValidateNumber = async (req, res, next) => {
         if (result.exists) {
             return res.status(200).json({ exists: true, jid: result.jid });
         }
-        return res.status(200).json({ exists: false, jid: 'unknow' });
+       
     } catch (error) {
         console.log(error);
-        return res.status(500).json({ error: 'Não foi acessar este recurso' });
+        return res.status(200).json({ exists: false, jid: 'unknow' });
     }
 }
 
