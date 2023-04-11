@@ -184,8 +184,6 @@ exports.StartSession = async (session, uniqkey, res = null) => {
         
         */
 
-
-
         const code = new Boom(connectionState.lastDisconnect?.error)?.output?.statusCode;
         const restartRequired = code === DisconnectReason.restartRequired;
         const doNotReconnect = !shouldReconnect(session);
@@ -283,6 +281,7 @@ exports.StartSession = async (session, uniqkey, res = null) => {
             numero: numero,
             image: foto
         }
+        
         global.Store.set(session, sessionData);
 
         const utils = {
