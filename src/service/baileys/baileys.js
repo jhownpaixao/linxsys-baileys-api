@@ -105,8 +105,8 @@ async function sendMessageWTyping(sock, msg, remoteJid, replay) {
         await sock.sendPresenceUpdate('composing', remoteJid)
         await delay(2000)
         await sock.sendPresenceUpdate('paused', remoteJid)
-        await sock.sendMessage(remoteJid, msg, replay);
-        resolve(true)
+        const response = await sock.sendMessage(remoteJid, msg, replay);
+        resolve(response)
     })
 }
 /**
@@ -114,14 +114,12 @@ async function sendMessageWTyping(sock, msg, remoteJid, replay) {
  * @param sock Socket de conexão da baileys
 */
 async function sendMessage(sock, remoteJid, msg, reply) {
-    console.log(sock, remoteJid, msg, reply);
     return new Promise(async (resolve) => {
         if (!sock) return false;
-        sock.sendMessage(remoteJid, msg, reply)
+        const response = sock.sendMessage(remoteJid, msg, reply)
         await delay(1_000);
-        resolve(true);
+        resolve(response);
     })
-
 }
 /**
  * Fornece os contatos da lista telefônica do dispositivo da conexão 
@@ -281,7 +279,7 @@ exports.StartSession = async (session, uniqkey, res = null) => {
             numero: numero,
             image: foto
         }
-        
+
         global.Store.set(session, sessionData);
 
         const utils = {
@@ -289,7 +287,6 @@ exports.StartSession = async (session, uniqkey, res = null) => {
             sendMessageWTyping: async (remoteJid, msg, replay) => await sendMessageWTyping(sock, msg, remoteJid, replay),
         }
         sessions.set(uniqkey, { sock, destroy, connStore, session, utils });
-
 
         inConnection.delete(uniqkey);
         console.log('[LinxSys-Baileys]:: A conexão está pronta para o uso');

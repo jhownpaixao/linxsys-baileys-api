@@ -33,6 +33,7 @@ exports.SessionAdd = async (req, res, next) => {
     const token = jwt.sign({ session, uniqkey }, JWT_SECRET);
     if (Store.has(session)) {
         return res.status(406).json({
+            status: false,
             error: 'A sessão já existe'
         });
     }
@@ -41,6 +42,7 @@ exports.SessionAdd = async (req, res, next) => {
         token
     });
     return res.status(200).json({
+        status: true,
         token
     });
 
@@ -66,6 +68,7 @@ exports.SessionStart = async (req, res, next) => {
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
     }
+    console.log(decoded);
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
@@ -115,12 +118,23 @@ exports.SendText = async (req, res, next) => {
         });
     }
 
+    const sessionData = await Store.get(decoded.session);
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
+    }
+
     const connection = onlineSessions.get(decoded.uniqkey);
     if (!connection) {
         return res.status(406).json({ error: 'Esta sessão não está conectada' });
     }
+
+    const [result] = await connection.sock.onWhatsApp(number)
+    if (!result?.exists) {
+        return res.status(203).json({ error: 'O numero deste contato não foi encontrado' });
+    }
+
     try {
-        const send = await PrepareAndSendMessage(decoded.uniqkey, number + '@s.whatsapp.net', {
+        const send = await PrepareAndSendMessage(decoded.uniqkey, result.jid, {
             message: {
                 text: body
             }
@@ -129,7 +143,7 @@ exports.SendText = async (req, res, next) => {
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
-        return res.status(200).json({ error: 'mensagem enviada' });
+        return res.status(200).json({ message: 'mensagem enviada' });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ error: 'Não foi possível enviar a mensagem' });
@@ -155,10 +169,16 @@ exports.ValidateNumber = async (req, res, next) => {
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
     }
+
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
         });
+    }
+
+    const sessionData = await Store.get(decoded.session);
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
     const connection = onlineSessions.get(decoded.uniqkey);
@@ -173,7 +193,7 @@ exports.ValidateNumber = async (req, res, next) => {
         if (result.exists) {
             return res.status(200).json({ exists: true, jid: result.jid });
         }
-       
+
     } catch (error) {
         console.log(error);
         return res.status(200).json({ exists: false, jid: 'unknow' });
