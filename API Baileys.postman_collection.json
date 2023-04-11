@@ -1,0 +1,172 @@
+{
+	"info": {
+		"_postman_id": "5f6bab03-bf75-4771-a266-dac09c754a7b",
+		"name": "API Baileys",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Mensagem",
+			"item": [
+				{
+					"name": "Enviar",
+					"item": [
+						{
+							"name": "Texto",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoiamhvbm5hdGEiLCJ1bmlxa2V5IjoiZDU0MjMyMzctM2Y3MS00YmVlLTljOGUtYWNjM2E2YWJjZjU3IiwiaWF0IjoxNjgxMjQyODI5fQ.J6L5_W0XIyerOmm1BdmI6QSO1Mc53moAxg0IjuJgijQ",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/:session/send-text",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										":session",
+										"send-text"
+									],
+									"variable": [
+										{
+											"key": "session",
+											"value": "jhonnata"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Sessões",
+			"item": [
+				{
+					"name": "Criar",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"session\":\"jhonnata\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/create-session",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"create-session"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Iniciar",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoiamhvbm5hdGEiLCJ1bmlxa2V5IjoiZDU0MjMyMzctM2Y3MS00YmVlLTljOGUtYWNjM2E2YWJjZjU3IiwiaWF0IjoxNjgxMjQyODI5fQ.J6L5_W0XIyerOmm1BdmI6QSO1Mc53moAxg0IjuJgijQ",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/:session/start-session",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								":session",
+								"start-session"
+							],
+							"variable": [
+								{
+									"key": "session",
+									"value": "jhonnata"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Utilidades",
+			"item": [
+				{
+					"name": "Verificar Numero",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoiamhvbm5hdGEiLCJ1bmlxa2V5IjoiZDU0MjMyMzctM2Y3MS00YmVlLTljOGUtYWNjM2E2YWJjZjU3IiwiaWF0IjoxNjgxMjQyODI5fQ.J6L5_W0XIyerOmm1BdmI6QSO1Mc53moAxg0IjuJgijQ",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/:session/send-text",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								":session",
+								"send-text"
+							],
+							"variable": [
+								{
+									"key": "session",
+									"value": "jhonnata"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
