@@ -221,10 +221,10 @@ exports.SendText = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !body) {
-        return res.status(400).json({ error: 'Requisição incompleta' });
+        return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
     if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
     }
 
     const decoded = jwt.verify(
@@ -233,7 +233,7 @@ exports.SendText = async (req, res, next) => {
     );
 
     if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
+        return res.status(403).json({ error: 'Autorização inválida', status: false });
     }
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
@@ -243,17 +243,17 @@ exports.SendText = async (req, res, next) => {
 
     const sessionData = await Store.get(decoded.session);
     if (sessionData.uniqkey !== decoded.uniqkey) {
-        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token', status: false });
     }
 
     const connection = onlineSessions.get(decoded.uniqkey);
     if (!connection) {
-        return res.status(406).json({ error: 'Esta sessão não está conectada' });
+        return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
     }
 
     const [result] = await connection.sock.onWhatsApp(number)
     if (!result?.exists) {
-        return res.status(203).json({ error: 'O numero deste contato não foi encontrado' });
+        return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
     }
 
     try {
@@ -266,10 +266,10 @@ exports.SendText = async (req, res, next) => {
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
-        return res.status(200).json({ message: 'mensagem enviada' });
+        return res.status(200).json({ message: 'Mensagem enviada', status: true });
     } catch (error) {
         console.log(error);
-        return res.status(500).json({ error: 'Não foi possível enviar a mensagem' });
+        return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
     }
 }
 
