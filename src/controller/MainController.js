@@ -5,19 +5,19 @@ const Store = AppStore();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const JWT_SECRET = 'RDA36fçssa1'
+const webhooks = require('node-webhooks');
 
+global.webhook = new webhooks({ db: {} });
 
 const AutoReconnect = async () => {
     const sessions = Store.getall();
     for (const [session, data] of sessions) {
         if (!data.connection) continue;
         console.log('Iniciando Auto Conexão para: ', data.uniqkey);
-        await StartSession(session, data.connection.id)
+        await StartSession(session, data.connection.id, null, data.connection.webhook)
     }
+
 }
-
-
-
 
 exports.SessionAdd = async (req, res, next) => {
     const { session } = req.body;
@@ -52,6 +52,7 @@ exports.SessionAdd = async (req, res, next) => {
 
 exports.SessionStart = async (req, res, next) => {
     const { session } = req.params;
+    const { webhook } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session) {
@@ -84,7 +85,7 @@ exports.SessionStart = async (req, res, next) => {
     }
     /* onlineSessions
     inConnection */
-    StartSession(session, sessionData.uniqkey, res)
+    StartSession(session, sessionData.uniqkey, res, webhook)
 
 }
 

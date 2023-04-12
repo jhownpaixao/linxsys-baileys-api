@@ -53,6 +53,7 @@ function shouldReconnect(id) {
     }
     return false;
 }
+
 /**
  * Atualiza o store da conexão
  * @param chat_id String contendo o id do da conexão
@@ -60,6 +61,7 @@ function shouldReconnect(id) {
 async function RemoveStoreSaveID(uniqkey) {
     storeSaveId.delete(uniqkey);
 }
+
 /**
  * Atualiza o store da conexão
  * @param chat_id String contendo o id do da conexão
@@ -71,6 +73,7 @@ async function UpdateStore(session, uniqkey, userStore) {
     userStore.writeToFile((path.resolve(storepath, `store_conn_${session}.json`)))
     return true;
 }
+
 /**
  * Carrega o store da conexão
  * @param conn_key String contendo o id do da conexão
@@ -109,6 +112,7 @@ async function sendMessageWTyping(sock, msg, remoteJid, replay) {
         resolve(response)
     })
 }
+
 /**
  * Envia uma mensagem por vez... 
  * @param sock Socket de conexão da baileys
@@ -121,6 +125,7 @@ async function sendMessage(sock, remoteJid, msg, reply) {
         resolve(response);
     })
 }
+
 /**
  * Fornece os contatos da lista telefônica do dispositivo da conexão 
  * @param store STORE do usuário da conexão
@@ -137,7 +142,47 @@ async function PhoneContacts(store, jid_conn) {
     return updatedArray;
 }
 
-exports.StartSession = async (session, uniqkey, res = null) => {
+/**
+ * Localiza o texto da mensagem 
+ * @param upsert Objeto de mensagem à ser pesquisado
+*/
+async function FindMsgText(upsert) {
+
+    let objMessage = upsert.messages[0]?.message ?? {};
+
+    let text = objMessage.conversation ||
+        objMessage.extendedTextMessage?.text ||
+        objMessage.ephemeralMessage?.message?.extendedTextMessage?.text ||
+        objMessage.buttonsResponseMessage?.selectedDisplayText ||
+        objMessage.listResponseMessage?.title ||
+        objMessage.imageMessage?.caption ||
+        objMessage.audioMessage?.caption ||
+        objMessage.documentMessage?.caption ||
+        objMessage.videoMessage?.caption ||
+        objMessage.viewOnceMessage?.message?.listMessage?.description || '';
+    return text;
+}
+
+/**
+ * Localiza a resposta de botões da mensagem 
+ * @param upsert Objeto de mensagem à ser pesquisado
+*/
+async function FindMsgButtonResponse(upsert) {
+    let btnResponse = upsert.messages[0]?.message?.buttonsResponseMessage?.selectedButtonId ?? false;
+    return btnResponse;
+}
+
+/**
+ * Localiza a resposta de listas da mensagem 
+ * @param upsert Objeto de mensagem à ser pesquisado
+*/
+async function FindMsgListResponse(upsert) {
+    let listResponse = upsert.messages[0]?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ?? false;
+    return listResponse;
+}
+
+exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
+    if (webhook) console.log('Session starting with webhook ', webhook);
     let connectionState = { connection: 'close' };
     const connStore = makeInMemoryStore({ logger });
     let qr = inConnection.get(uniqkey);
@@ -157,7 +202,7 @@ exports.StartSession = async (session, uniqkey, res = null) => {
         sock.logout()
         await destroy();
         if (fs.existsSync(tokenpath)) fs.rmdirSync(tokenpath, { recursive: true, force: true });
-       
+
         let sessionData = await global.Store.get(session);
         delete (sessionData.connection)
         global.Store.set(session, sessionData);
@@ -284,11 +329,14 @@ exports.StartSession = async (session, uniqkey, res = null) => {
 
         const numero = jidNormalizedUser(sock.user.id).replace("@s.whatsapp.net", "");
         let sessionData = await global.Store.get(session);
+        if (webhook) global.webhook.add(uniqkey, webhook)
+
         sessionData.connection = {
             id: uniqkey,
             nome: sock.user.name,
             numero: numero,
-            image: foto
+            image: foto,
+            webhook: webhook
         }
 
         global.Store.set(session, sessionData);
@@ -401,40 +449,40 @@ exports.StartSession = async (session, uniqkey, res = null) => {
         if (connection === 'close') handleConnectionClose();
         handleConnectionUpdate();
     });
-    /* 
-        sock.ev.on('messages.upsert', async (upsert) => {
-    
-            var chat = {
-                conn: conn_id,
-                nick: upsert.messages[0].pushName,
-                key: upsert.messages[0].key,
-                jid: upsert.messages[0].key.remoteJid,
-                hasNewMessage: true,
-                buttonResponse: await FindMsgButtonResponse(upsert),
-                listResponse: await FindMsgListResponse(upsert),
-                messages: upsert.messages,
-                info: upsert.messages[0].message,
-                type: upsert.messages[0] && upsert.messages[0].message ? Object.keys(upsert.messages[0].message)[0] : '',
-                msg: await FindMsgText(upsert)
+
+    sock.ev.on('messages.upsert', async (upsert) => {
+
+
+        const chat = {
+            event: "onmessage",
+            session: session,
+            sessionUniqkey: uniqkey,
+            notifyName: upsert.messages[0].pushName,
+            key: upsert.messages[0].key,
+            from: upsert.messages[0].key.remoteJid,
+            hasNewMessage: true,
+            buttonResponse: await FindMsgButtonResponse(upsert),
+            listResponse: await FindMsgListResponse(upsert),
+            type: upsert.messages[0] && upsert.messages[0].message ? Object.keys(upsert.messages[0].message)[0] : '',
+            body: await FindMsgText(upsert)
+        }
+        if (webhook) global.webhook.trigger(uniqkey, chat)
+    })
+    /* sock.ev.on('messages.delete', async (update) => {
+
+        io.sockets.emit("messages.delete " + chat_id, { id: update.keys[0].id, jid: update.keys[0].remoteJid }, conn_id)
+    })
+    sock.ev.on('messages.update', async (update) => {
+
+        for (const up of update) {
+            const upmsg = up.update?.message
+            if (upmsg === null) {
+                io.sockets.emit("messages.delete " + chat_id, { id: update[0].key.id }, conn_id)
             }
-            io.sockets.emit("atualizar " + chat_id, chat, conn_id);
-            Callback(chat);
-        })
-        sock.ev.on('messages.delete', async (update) => {
-    
-            io.sockets.emit("messages.delete " + chat_id, { id: update.keys[0].id, jid: update.keys[0].remoteJid }, conn_id)
-        })
-        sock.ev.on('messages.update', async (update) => {
-    
-            for (const up of update) {
-                const upmsg = up.update?.message
-                if (upmsg === null) {
-                    io.sockets.emit("messages.delete " + chat_id, { id: update[0].key.id }, conn_id)
-                }
-            }
-    
-    
-        }) */
+        }
+
+
+    }) */
 
     /* 
         sock.ev.on('contacts.update', async (update) => {

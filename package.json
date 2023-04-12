@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start":"node src/server.js"
+    "start": "node src/server.js"
   },
   "author": "Jhonnata Paixão",
   "license": "ISC",
@@ -23,6 +23,7 @@
     "https": "^1.0.0",
     "jsonwebtoken": "^9.0.0",
     "moment": "^2.29.4",
+    "node-webhooks": "^1.4.2",
     "path": "^0.12.7",
     "pino-http": "^8.3.3",
     "pino-multi-stream": "^6.0.0",
