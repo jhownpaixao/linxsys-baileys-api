@@ -2,3 +2,4 @@ node_modules/
 src/service/AppMemory/store/
 src/service/baileys/cache/
 logs/
+.env
