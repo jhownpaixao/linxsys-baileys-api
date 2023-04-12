@@ -69,7 +69,6 @@ exports.SessionStart = async (req, res, next) => {
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
     }
-    console.log(decoded);
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
@@ -83,14 +82,53 @@ exports.SessionStart = async (req, res, next) => {
             connection: sessionData.connection
         });
     }
-    onlineSessions
-    inConnection
+    /* onlineSessions
+    inConnection */
     StartSession(session, sessionData.uniqkey, res)
 
 }
 
 exports.SessionDelete = async () => {
 
+}
+
+exports.SessionStatus = async (req, res, next) => {
+    const { session } = req.params;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session) {
+        return res.status(400).json({ error: 'Requisição incompleta' });
+    }
+    if (!token) {
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
+    }
+
+    const decoded = jwt.verify(
+        token,
+        JWT_SECRET
+    );
+
+    if (!decoded) {
+        return res.status(403).json({ error: 'Autorização inválida' });
+    }
+    if (!Store.has(decoded.session)) {
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const sessionData = await Store.get(decoded.session);
+
+    if (onlineSessions.get(sessionData.uniqkey)) {
+        return res.status(200).json({
+            status: true,
+            message: 'A sessão está conectada',
+            connection: sessionData.connection
+        });
+    }
+    return res.status(200).json({
+        status: false,
+        message: 'A sessão não está conectada',
+    });
 }
 
 exports.SendText = async (req, res, next) => {
