@@ -88,9 +88,93 @@ exports.SessionStart = async (req, res, next) => {
 
 }
 
-exports.SessionDelete = async () => {
+exports.SessionDelete = async (req, res, next) => {
+    const { session } = req.params;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session) {
+        return res.status(400).json({ error: 'Requisição incompleta' });
+    }
+    if (!token) {
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
+    }
+
+    const decoded = jwt.verify(
+        token,
+        JWT_SECRET
+    );
+
+    if (!decoded) {
+        return res.status(403).json({ error: 'Autorização inválida' });
+    }
+
+
+    if (!Store.has(decoded.session)) {
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const sessionData = await Store.get(decoded.session);
+
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
+    }
+
+    const online = onlineSessions.get(sessionData.uniqkey)
+    if (online) {
+        await online.exclude();
+    }
+
+    const exclude = Store.exclude(decoded.session);
+    if (exclude) {
+        return res.status(200).json({ status: true, message: 'Sessão excluída' });
+    }
+    return res.status(500).json({ status: false, message: 'Não foi possível excluir a sessão' });
 
 }
+
+exports.SessionDesconnect = async (req, res, next) => {
+    const { session } = req.params;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session) {
+        return res.status(400).json({ error: 'Requisição incompleta' });
+    }
+    if (!token) {
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
+    }
+
+    const decoded = jwt.verify(
+        token,
+        JWT_SECRET
+    );
+
+    if (!decoded) {
+        return res.status(403).json({ error: 'Autorização inválida' });
+    }
+
+
+    if (!Store.has(decoded.session)) {
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const sessionData = await Store.get(decoded.session);
+
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
+    }
+
+    const online = onlineSessions.get(sessionData.uniqkey)
+    if (online) {
+        await online.destroy();
+        return res.status(200).json({ statu: true, message: 'Sessão desconectada' });
+    }
+
+    return res.status(200).json({ statu: false, message: 'A sessão não está conectada' });
+
+}
+
 
 exports.SessionStatus = async (req, res, next) => {
     const { session } = req.params;

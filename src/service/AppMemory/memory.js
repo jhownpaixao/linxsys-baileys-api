@@ -50,8 +50,9 @@ exports.default = () => {
         return data
     }
     const exclude = (key) => {
-        Sessions.delete(key);
+        const result = Sessions.delete(key);
         updateFile();
+        return result
     }
 
     const get = async (key) => {

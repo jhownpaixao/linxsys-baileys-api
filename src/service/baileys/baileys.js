@@ -153,6 +153,17 @@ exports.StartSession = async (session, uniqkey, res = null) => {
 
     inConnection.set(uniqkey, true);
 
+    const exclude = async (logout = true) => {
+        sock.logout()
+        await destroy();
+        if (fs.existsSync(tokenpath)) fs.rmdirSync(tokenpath, { recursive: true, force: true });
+       
+        let sessionData = await global.Store.get(session);
+        delete (sessionData.connection)
+        global.Store.set(session, sessionData);
+
+    };
+
     const destroy = async (logout = true) => {
         try {
             await Promise.all([
@@ -286,7 +297,7 @@ exports.StartSession = async (session, uniqkey, res = null) => {
             sendMessage: async (remoteJid, msg, reply) => await sendMessage(sock, remoteJid, msg, reply),
             sendMessageWTyping: async (remoteJid, msg, replay) => await sendMessageWTyping(sock, msg, remoteJid, replay),
         }
-        sessions.set(uniqkey, { sock, destroy, connStore, session, utils });
+        sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils });
 
         inConnection.delete(uniqkey);
         console.log('[LinxSys-Baileys]:: A conexão está pronta para o uso');
