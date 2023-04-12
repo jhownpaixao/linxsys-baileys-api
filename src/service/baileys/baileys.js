@@ -466,6 +466,10 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             type: upsert.messages[0] && upsert.messages[0].message ? Object.keys(upsert.messages[0].message)[0] : '',
             body: await FindMsgText(upsert)
         }
+
+        if (chat.key.fromMe || isJidBroadcast(chat.from) || isJidGroup(chat.from)) {
+            return
+        }
         if (webhook) global.webhook.trigger(uniqkey, chat)
     })
     /* sock.ev.on('messages.delete', async (update) => {
