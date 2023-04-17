@@ -1,10 +1,20 @@
 const makeWASocket = require('@adiwajshing/baileys').default;
-const { WAProto, delay, downloadMediaMessage, DisconnectReason, isJidBroadcast, isJidGroup, makeCacheableSignalKeyStore, jidNormalizedUser, fetchLatestBaileysVersion, useMultiFileAuthState, WA_DEFAULT_EPHEMERAL, downloadContentFromMessage, Browsers } = require('@adiwajshing/baileys')
+const {
+    delay,
+    DisconnectReason,
+    isJidBroadcast,
+    isJidGroup,
+    makeCacheableSignalKeyStore,
+    jidNormalizedUser,
+    fetchLatestBaileysVersion,
+    useMultiFileAuthState,
+    Browsers
+} = require('@adiwajshing/baileys');
 const path = require('path');
 const fs = require('fs');
-const { toDataURL } = require('qrcode')
+const { toDataURL } = require('qrcode');
 const logger = require('../logger').default;
-const { makeInMemoryStore } = require("./store");
+const { makeInMemoryStore } = require('./store');
 const { Boom } = require('@hapi/boom');
 const msgRetryCounterMap = {};
 
@@ -15,13 +25,11 @@ exports.onlineSessions = sessions;
 const retries = new Map([]);
 const qrgenerations = new Map([]);
 const inConnection = new Map([]);
-const downloadingMedia = new Map([]);
 exports.inConnection = inConnection;
 
 const WA_RECONNECT_INTERVAL = process.env.RECONNECT_INTERVAL || 0;
 const WA_MAX_RECONNECT_RETRIES = process.env.MAX_RECONNECT_RETRIES || 3;
 const WA_MAX_QR_GENERATION = process.env.SSE_MAX_QR_GENERATION || 3;
-
 
 // save every 10s
 setInterval(async () => {
@@ -34,17 +42,16 @@ setInterval(async () => {
         !storeReadedId.get(uniqkey) && ReadStore(session.session, uniqkey, session.connStore);
         UpdateStore(session.session, uniqkey, session.connStore);
         c_conns++;
-
     }
     console.log(`[LinxSys-Baileys]:: Stores atualizados -> Sessões: ${storeReadedId.size}, Conexões: ${c_conns}`);
-}, 10_000)
+}, 10000);
 
 /**
  * Verifica o numero de tentativas da conexão
  * @param chat_id String contendo o id do da conexão
-*/
+ */
 function shouldReconnect(id) {
-    let attempts = retries.get(id) ?? 0;
+    let attempts = retries.get(id) || 0;
 
     if (attempts < WA_MAX_RECONNECT_RETRIES) {
         attempts += 1;
@@ -57,7 +64,7 @@ function shouldReconnect(id) {
 /**
  * Atualiza o store da conexão
  * @param chat_id String contendo o id do da conexão
-*/
+ */
 async function RemoveStoreSaveID(uniqkey) {
     storeSaveId.delete(uniqkey);
 }
@@ -65,12 +72,12 @@ async function RemoveStoreSaveID(uniqkey) {
 /**
  * Atualiza o store da conexão
  * @param chat_id String contendo o id do da conexão
-*/
+ */
 async function UpdateStore(session, uniqkey, userStore) {
     if (!userStore) return false;
     const storepath = path.join(__dirname, `./cache/${uniqkey}/store/`);
     !fs.existsSync(storepath) && fs.mkdirSync(storepath, { recursive: true, force: true });
-    userStore.writeToFile((path.resolve(storepath, `store_conn_${session}.json`)))
+    userStore.writeToFile(path.resolve(storepath, `store_conn_${session}.json`));
     return true;
 }
 
@@ -78,14 +85,14 @@ async function UpdateStore(session, uniqkey, userStore) {
  * Carrega o store da conexão
  * @param conn_key String contendo o id do da conexão
  * @param userStore String contendo o STORE da conexão
-*/
+ */
 async function ReadStore(session, uniqkey, userStore) {
     if (!userStore) return false;
 
     const storepath = path.join(__dirname, `./cache/${uniqkey}/store/`);
     !fs.existsSync(storepath) && fs.mkdirSync(storepath, { recursive: true, force: true });
 
-    const storeFile = (path.resolve(storepath, `store_conn_${session}.json`));
+    const storeFile = path.resolve(storepath, `store_conn_${session}.json`);
     fs.existsSync(storeFile) && userStore.readFromFile(storeFile);
 
     !storeReadedId.get(uniqkey) && storeReadedId.set(uniqkey, storeFile);
@@ -98,59 +105,49 @@ async function ReadStore(session, uniqkey, userStore) {
  * @param msg Objeto de mensagem
  * @param remoteJid O JID do destinatário
  * @param replay replay da mensagem
-*/
+ */
 async function sendMessageWTyping(sock, msg, remoteJid, replay) {
-    return new Promise(async (resolve) => {
-        if (!replay) { replay = {} }
+    return new Promise((resolve, reject) => {
+        if (!replay) {
+            replay = {};
+        }
         replay.disappearingMessagesInChat = false;
-        await sock.presenceSubscribe(remoteJid)
-        await delay(500)
-        await sock.sendPresenceUpdate('composing', remoteJid)
-        await delay(2000)
-        await sock.sendPresenceUpdate('paused', remoteJid)
-        const response = await sock.sendMessage(remoteJid, msg, replay);
-        resolve(response)
-    })
+        try {
+            sock.presenceSubscribe(remoteJid);
+            delay(500);
+            sock.sendPresenceUpdate('composing', remoteJid);
+            delay(2000);
+            sock.sendPresenceUpdate('paused', remoteJid);
+            const response = sock.sendMessage(remoteJid, msg, replay);
+            resolve(response);
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
 
 /**
- * Envia uma mensagem por vez... 
+ * Envia uma mensagem por vez...
  * @param sock Socket de conexão da baileys
-*/
+ */
 async function sendMessage(sock, remoteJid, msg, reply) {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
         if (!sock) return false;
-        const response = sock.sendMessage(remoteJid, msg, reply)
-        await delay(1_000);
+        const response = sock.sendMessage(remoteJid, msg, reply);
+        delay(1000);
         resolve(response);
-    })
+    });
 }
 
 /**
- * Fornece os contatos da lista telefônica do dispositivo da conexão 
- * @param store STORE do usuário da conexão
-*/
-async function PhoneContacts(store, jid_conn) {
-    const phoneContacts = store.phoneContacts;
-
-
-    const updatedArray = Object.values(phoneContacts).map((contact) => ({
-        ...contact,
-        jid_conn: jid_conn
-    }));
-    console.log('contatos da conexão atual: ', !phoneContacts && '0' || Object.values(updatedArray).length);
-    return updatedArray;
-}
-
-/**
- * Localiza o texto da mensagem 
+ * Localiza o texto da mensagem
  * @param upsert Objeto de mensagem à ser pesquisado
-*/
+ */
 async function FindMsgText(upsert) {
+    let objMessage = upsert.messages[0]?.message || {};
 
-    let objMessage = upsert.messages[0]?.message ?? {};
-
-    let text = objMessage.conversation ||
+    let text =
+        objMessage.conversation ||
         objMessage.extendedTextMessage?.text ||
         objMessage.ephemeralMessage?.message?.extendedTextMessage?.text ||
         objMessage.buttonsResponseMessage?.selectedDisplayText ||
@@ -159,23 +156,24 @@ async function FindMsgText(upsert) {
         objMessage.audioMessage?.caption ||
         objMessage.documentMessage?.caption ||
         objMessage.videoMessage?.caption ||
-        objMessage.viewOnceMessage?.message?.listMessage?.description || '';
+        objMessage.viewOnceMessage?.message?.listMessage?.description ||
+        '';
     return text;
 }
 
 /**
- * Localiza a resposta de botões da mensagem 
+ * Localiza a resposta de botões da mensagem
  * @param upsert Objeto de mensagem à ser pesquisado
-*/
+ */
 async function FindMsgButtonResponse(upsert) {
     let btnResponse = upsert.messages[0]?.message?.buttonsResponseMessage?.selectedButtonId ?? false;
     return btnResponse;
 }
 
 /**
- * Localiza a resposta de listas da mensagem 
+ * Localiza a resposta de listas da mensagem
  * @param upsert Objeto de mensagem à ser pesquisado
-*/
+ */
 async function FindMsgListResponse(upsert) {
     let listResponse = upsert.messages[0]?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ?? false;
     return listResponse;
@@ -199,35 +197,27 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     inConnection.set(uniqkey, true);
 
     const exclude = async (logout = true) => {
-        sock.logout()
-        await destroy();
+        sock.logout();
+        await destroy(logout);
         if (fs.existsSync(tokenpath)) fs.rmdirSync(tokenpath, { recursive: true, force: true });
 
         let sessionData = await global.Store.get(session);
-        delete (sessionData.connection)
+        delete sessionData.connection;
         global.Store.set(session, sessionData);
-
     };
 
     const destroy = async (logout = true) => {
         try {
-            await Promise.all([
-                logout &&
-                sock.ws.close(),
-                sock.ev.removeAllListeners(),
-                sock.logout(),
-                delete sock,
-                sock = null,
-            ]);
+            await Promise.all([logout && sock.ws.close(), sock.ev.removeAllListeners(), sock.logout() /* , delete sock, (sock = null) */]);
         } catch (e) {
             logger.error(e, 'Ocorreu um erro durante a destruíção da sessão');
         } finally {
             sessions.delete(uniqkey);
             retries.delete(uniqkey);
             qrgenerations.delete(uniqkey);
-            storeReadedId.delete(uniqkey)
+            storeReadedId.delete(uniqkey);
             RemoveStoreSaveID(uniqkey);
-            inConnection.delete(uniqkey)
+            inConnection.delete(uniqkey);
         }
     };
     const handleConnectionClose = async () => {
@@ -283,9 +273,9 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
                 res?.status(500).json({
                     error: 'Houve um erro durante a geração do QR Code'
                 });
-                return
+                return;
             }
-            if ((qr && currentGenerations >= WA_MAX_QR_GENERATION)) {
+            if (qr && currentGenerations >= WA_MAX_QR_GENERATION) {
                 console.log('[LinxSys-Baileys]:: Geração máxima de QRCodes atingidas, favor abrir uma nova sessão', uniqkey);
                 /* 
                webhook QRCode max generated
@@ -322,14 +312,14 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
 
         let foto;
         try {
-            foto = await sock.profilePictureUrl(jidNormalizedUser(sock.user.id))
+            foto = await sock.profilePictureUrl(jidNormalizedUser(sock.user.id));
         } catch (error) {
             foto = '';
         }
 
-        const numero = jidNormalizedUser(sock.user.id).replace("@s.whatsapp.net", "");
+        const numero = jidNormalizedUser(sock.user.id).replace('@s.whatsapp.net', '');
         let sessionData = await global.Store.get(session);
-        if (webhook) global.webhook.add(uniqkey, webhook)
+        if (webhook) global.webhook.add(uniqkey, webhook);
 
         sessionData.connection = {
             id: uniqkey,
@@ -337,14 +327,14 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             numero: numero,
             image: foto,
             webhook: webhook
-        }
+        };
 
         global.Store.set(session, sessionData);
 
         const utils = {
             sendMessage: async (remoteJid, msg, reply) => await sendMessage(sock, remoteJid, msg, reply),
-            sendMessageWTyping: async (remoteJid, msg, replay) => await sendMessageWTyping(sock, msg, remoteJid, replay),
-        }
+            sendMessageWTyping: async (remoteJid, msg, replay) => await sendMessageWTyping(sock, msg, remoteJid, replay)
+        };
         sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils });
 
         inConnection.delete(uniqkey);
@@ -357,19 +347,16 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             message: 'Conectado',
             connection: sessionData.connection
         });
-
     };
 
     const tokenpath = path.join(__dirname, `./cache/${uniqkey}/token/conn_${session}`);
     !fs.existsSync(tokenpath) && fs.mkdirSync(tokenpath, { recursive: true, force: true });
 
-    const { version, isLatest } = await fetchLatestBaileysVersion()
+    const { version, isLatest } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState(tokenpath);
-
 
     ReadStore(session, uniqkey, connStore);
     storeSaveId.set(uniqkey, session);
-
 
     logger.debug({ session }, `using WA v${version.join('.')}, isLatest: ${isLatest}`);
     logger.debug({ session }, ' Carregando store da conexão');
@@ -382,13 +369,13 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         auth: {
             creds: state.creds,
             /** caching makes the store faster to send/recv messages */
-            keys: makeCacheableSignalKeyStore(state.keys, logger),
+            keys: makeCacheableSignalKeyStore(state.keys, logger)
         },
         msgRetryCounterMap,
         generateHighQualityLinkPreview: true,
         // ignore all broadcast messages -- to receive the same
         // comment the line below out
-        shouldIgnoreJid: jid => isJidBroadcast(jid),
+        shouldIgnoreJid: (jid) => isJidBroadcast(jid),
         browser: Browsers.ubuntu('Desktop'),
         syncFullHistory: true,
         options: {
@@ -397,48 +384,44 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             }
         },
         // implement to handle retries
-        getMessage: async key => {
+        getMessage: async (key) => {
             if (connStore) {
-                const msg = await connStore.loadMessage(key.remoteJid, key.id)
-                return msg?.message || undefined
+                const msg = await connStore.loadMessage(key.remoteJid, key.id);
+                return msg?.message || undefined;
             }
 
             // only if store is present
             return {
                 conversation: 'hello'
-            }
+            };
         },
         patchMessageBeforeSending: (message) => {
-            const requiresPatch = !!(
-                message.buttonsMessage
-                || message.templateMessage
-                || message.listMessage
-            );
+            const requiresPatch = !!(message.buttonsMessage || message.templateMessage || message.listMessage);
             if (requiresPatch) {
                 message = {
                     viewOnceMessage: {
                         message: {
                             messageContextInfo: {
                                 deviceListMetadataVersion: 2,
-                                deviceListMetadata: {},
+                                deviceListMetadata: {}
                             },
-                            ...message,
-                        },
-                    },
+                            ...message
+                        }
+                    }
                 };
             }
             return message;
         }
-    })
+    });
 
-    connStore?.bind(sock.ev)
+    connStore?.bind(sock.ev);
     sessions.set(uniqkey, { ...sock, destroy, connStore, session });
 
     /* ESCUTA DE EVENTOS */
-    sock.ev.on('creds.update', saveCreds)
+    sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection } = update;
         connectionState = update;
 
         if (connection === 'open') {
@@ -451,10 +434,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     });
 
     sock.ev.on('messages.upsert', async (upsert) => {
-
-
         const chat = {
-            event: "onmessage",
+            event: 'onmessage',
             session: session,
             sessionUniqkey: uniqkey,
             notifyName: upsert.messages[0].pushName,
@@ -465,13 +446,13 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             listResponse: await FindMsgListResponse(upsert),
             type: upsert.messages[0] && upsert.messages[0].message ? Object.keys(upsert.messages[0].message)[0] : '',
             body: await FindMsgText(upsert)
-        }
+        };
 
         if (chat.key.fromMe || isJidBroadcast(chat.from) || isJidGroup(chat.from)) {
-            return
+            return;
         }
-        if (webhook) global.webhook.trigger(uniqkey, chat)
-    })
+        if (webhook) global.webhook.trigger(uniqkey, chat);
+    });
     /* sock.ev.on('messages.delete', async (update) => {
 
         io.sockets.emit("messages.delete " + chat_id, { id: update.keys[0].id, jid: update.keys[0].remoteJid }, conn_id)
@@ -511,9 +492,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         sock.ev.on('presence.update', async (event) => io.sockets.emit("presence " + chat_id, event, conn_id))
     
      */
-
-}
+};
 
 exports.sessionExists = (key) => {
-    return global.Store.has(key)
-}
+    return global.Store.has(key);
+};

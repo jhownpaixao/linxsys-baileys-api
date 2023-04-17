@@ -1,12 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
 function makeOrderedDictionary(idGetter) {
     const array = [];
     const dict = {};
     const get = (id) => dict[id];
     const update = (item) => {
         const id = idGetter(item);
-        const idx = array.findIndex(i => idGetter(i) === id);
+        const idx = array.findIndex((i) => idGetter(i) === id);
         if (idx >= 0) {
             array[idx] = item;
             dict[id] = item;
@@ -17,12 +17,10 @@ function makeOrderedDictionary(idGetter) {
         const id = idGetter(item);
         if (get(id)) {
             update(item);
-        }
-        else {
+        } else {
             if (mode === 'append') {
                 array.push(item);
-            }
-            else {
+            } else {
                 array.splice(0, 0, item);
             }
             dict[id] = item;
@@ -30,7 +28,7 @@ function makeOrderedDictionary(idGetter) {
     };
     const remove = (item) => {
         const id = idGetter(item);
-        const idx = array.findIndex(i => idGetter(i) === id);
+        const idx = array.findIndex((i) => idGetter(i) === id);
         if (idx >= 0) {
             array.splice(idx, 1);
             delete dict[id];
@@ -56,7 +54,7 @@ function makeOrderedDictionary(idGetter) {
         },
         clear: () => {
             array.splice(0, array.length);
-            Object.keys(dict).forEach(key => {
+            Object.keys(dict).forEach((key) => {
                 delete dict[key];
             });
         },
@@ -66,8 +64,7 @@ function makeOrderedDictionary(idGetter) {
                 if (!contain(array[i])) {
                     delete dict[idGetter(array[i])];
                     array.splice(i, 1);
-                }
-                else {
+                } else {
                     i += 1;
                 }
             }

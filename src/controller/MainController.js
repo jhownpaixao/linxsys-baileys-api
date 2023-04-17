@@ -1,10 +1,9 @@
 const { StartSession, onlineSessions, inConnection } = require('../service/baileys/baileys');
-const AppStore = require('../service/AppMemory/memory').default
+const AppStore = require('../service/AppMemory/memory').default;
 const crypto = require('crypto');
 const Store = AppStore();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const JWT_SECRET = 'RDA36fçssa1'
+const JWT_SECRET = 'RDA36fçssa1';
 const webhooks = require('node-webhooks');
 
 global.webhook = new webhooks({ db: {} });
@@ -14,15 +13,13 @@ const AutoReconnect = async () => {
     for (const [session, data] of sessions) {
         if (!data.connection) continue;
         console.log('Iniciando Auto Conexão para: ', data.uniqkey);
-        await StartSession(session, data.connection.id, null, data.connection.webhook)
+        await StartSession(session, data.connection.id, null, data.connection.webhook);
     }
+};
 
-}
-
-exports.SessionAdd = async (req, res, next) => {
+exports.SessionAdd = async (req, res) => {
     const { session } = req.body;
-
-    if (!session) {
+    if (!session || session.includes(':')) {
         return res.status(200).json({
             message: 'Parametros incorretos'
         });
@@ -46,26 +43,22 @@ exports.SessionAdd = async (req, res, next) => {
         session,
         token
     });
+};
 
-}
-
-
-exports.SessionStart = async (req, res, next) => {
+exports.SessionStart = async (req, res) => {
     const { session } = req.params;
+    console.log('session', session);
     const { webhook } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    if (!session) {
+    if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
     if (!token) {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
@@ -85,30 +78,25 @@ exports.SessionStart = async (req, res, next) => {
     }
     /* onlineSessions
     inConnection */
-    StartSession(session, sessionData.uniqkey, res, webhook)
+    StartSession(session, sessionData.uniqkey, res, webhook);
+};
 
-}
-
-exports.SessionDelete = async (req, res, next) => {
+exports.SessionDelete = async (req, res) => {
     const { session } = req.params;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    if (!session) {
+    if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
     if (!token) {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
     }
-
 
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
@@ -121,7 +109,7 @@ exports.SessionDelete = async (req, res, next) => {
         return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
-    const online = onlineSessions.get(sessionData.uniqkey)
+    const online = onlineSessions.get(sessionData.uniqkey);
     if (online) {
         await online.exclude();
     }
@@ -131,29 +119,24 @@ exports.SessionDelete = async (req, res, next) => {
         return res.status(200).json({ status: true, message: 'Sessão excluída' });
     }
     return res.status(500).json({ status: false, message: 'Não foi possível excluir a sessão' });
+};
 
-}
-
-exports.SessionDesconnect = async (req, res, next) => {
+exports.SessionDesconnect = async (req, res) => {
     const { session } = req.params;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    if (!session) {
+    if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
     if (!token) {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
     }
-
 
     if (!Store.has(decoded.session)) {
         return res.status(406).json({
@@ -166,32 +149,27 @@ exports.SessionDesconnect = async (req, res, next) => {
         return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
-    const online = onlineSessions.get(sessionData.uniqkey)
+    const online = onlineSessions.get(sessionData.uniqkey);
     if (online) {
         await online.destroy();
         return res.status(200).json({ statu: true, message: 'Sessão desconectada' });
     }
 
     return res.status(200).json({ statu: false, message: 'A sessão não está conectada' });
+};
 
-}
-
-
-exports.SessionStatus = async (req, res, next) => {
+exports.SessionStatus = async (req, res) => {
     const { session } = req.params;
     const token = req.header('Authorization')?.replace('Bearer ', '');
-
-    if (!session) {
+    console.log('session', session);
+    if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
     if (!token) {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
@@ -212,11 +190,11 @@ exports.SessionStatus = async (req, res, next) => {
     }
     return res.status(200).json({
         status: false,
-        message: 'A sessão não está conectada',
+        message: 'A sessão não está conectada'
     });
-}
+};
 
-exports.SendText = async (req, res, next) => {
+exports.SendText = async (req, res) => {
     const { session } = req.params;
     const { number, body } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -228,10 +206,7 @@ exports.SendText = async (req, res, next) => {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida', status: false });
@@ -252,7 +227,12 @@ exports.SendText = async (req, res, next) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
     }
 
-    const [result] = await connection.sock.onWhatsApp(number)
+    inConnection.get(decoded.uniqkey);
+    if (inConnection) {
+        return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
+    }
+
+    const [result] = await connection.sock.onWhatsApp(number);
     if (!result?.exists) {
         return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
     }
@@ -262,7 +242,7 @@ exports.SendText = async (req, res, next) => {
             message: {
                 text: body
             }
-        })
+        });
 
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
@@ -272,9 +252,65 @@ exports.SendText = async (req, res, next) => {
         console.log(error);
         return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
     }
-}
+};
 
-exports.ValidateNumber = async (req, res, next) => {
+exports.SendImage = async (req, res) => {
+    const { session } = req.params;
+    const { number, body } = req.body;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session || !number || !body) {
+        return res.status(400).json({ error: 'Requisição incompleta', status: false });
+    }
+
+    if (!token) {
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (!decoded) {
+        return res.status(403).json({ error: 'Autorização inválida', status: false });
+    }
+    if (!Store.has(decoded.session)) {
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+
+    const sessionData = await Store.get(decoded.session);
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token', status: false });
+    }
+
+    const connection = onlineSessions.get(decoded.uniqkey);
+    if (!connection) {
+        return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
+    }
+
+    const [result] = await connection.sock.onWhatsApp(number);
+    if (!result?.exists) {
+        return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
+    }
+
+    try {
+        const send = await PrepareAndSendMessage(decoded.uniqkey, result.jid, {
+            message: {
+                text: body
+            }
+        });
+
+        if (!send) {
+            return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
+        }
+        return res.status(200).json({ message: 'Mensagem enviada', status: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
+    }
+};
+
+exports.ValidateNumber = async (req, res) => {
     const { session, number } = req.params;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -285,10 +321,7 @@ exports.ValidateNumber = async (req, res, next) => {
         return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
     }
 
-    const decoded = jwt.verify(
-        token,
-        JWT_SECRET
-    );
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded) {
         return res.status(403).json({ error: 'Autorização inválida' });
@@ -310,20 +343,27 @@ exports.ValidateNumber = async (req, res, next) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada' });
     }
 
-    /* TO-DO */
+    inConnection.get(decoded.uniqkey);
+    if (inConnection) {
+        return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
+    }
 
+    /* filter */
+    let n = String(number);
+    n.replace(/[^0-9]/g, '');
+    if (!n.startsWith('55')) n = '55' + n; /* replicar */
+
+    /* TO-DO */
     try {
-        const [result] = await connection.sock.onWhatsApp(number)
+        const [result] = await connection.sock.onWhatsApp(n);
         if (result.exists) {
             return res.status(200).json({ exists: true, jid: result.jid });
         }
-
     } catch (error) {
         console.log(error);
         return res.status(200).json({ exists: false, jid: 'unknow' });
     }
-}
-
+};
 
 /**
  * Cria o objeto de mensagem com padrão da @baileys e posteriormente envia para o JID
@@ -335,7 +375,6 @@ exports.ValidateNumber = async (req, res, next) => {
  * @param { boolean } simulate Para siumlar o evento Typing (HUMANIZAR)
  */
 async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
-
     /* let msg = {
        type: 'text',
        title: '',
@@ -398,37 +437,32 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
     } */
 
     const createSections = async (section) => {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             let result = [];
 
-            for (const [key, sec] of Object.entries(section.sections)) {
-                /* const sec = section.sections[index]; */
+            for (const sec of Object.values(section.sections)) {
                 const title = sec.title;
                 let options = [];
                 for (const [i, row] of Object.entries(sec.rows)) {
-                    /*  const row = sec.rows[index]; */
-                    options.push({ title: row.title, rowId: i, description: row.description ? row.description : '' })
-
+                    options.push({ title: row.title, rowId: i, description: row.description ? row.description : '' });
                 }
 
                 result.push({
                     title: title,
                     rows: options
-                })
+                });
             }
             resolve(result);
-
-        })
-
-    }
+        });
+    };
     const createButtons = async (buttonList) => {
         let buttons = [];
         for (let index = 0; index < buttonList.length; index++) {
             const element = buttonList[index];
-            buttons.push({ buttonId: index, buttonText: { displayText: element }, type: 1 })
+            buttons.push({ buttonId: index, buttonText: { displayText: element }, type: 1 });
         }
         return buttons;
-    }
+    };
     const createTemplateButtons = async (buttonList) => {
         let buttons = [];
         for (let index = 0; index < buttonList.length; index++) {
@@ -436,18 +470,18 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
 
             switch (button.type) {
                 case 'urlButton':
-                    buttons.push({ index: index, urlButton: { displayText: button.text, url: button.data } })
+                    buttons.push({ index: index, urlButton: { displayText: button.text, url: button.data } });
                     break;
                 case 'callButton':
-                    buttons.push({ index: index, callButton: { displayText: button.text, phoneNumber: button.data } })
+                    buttons.push({ index: index, callButton: { displayText: button.text, phoneNumber: button.data } });
                     break;
                 case 'quickReplyButton':
-                    buttons.push({ index: index, quickReplyButton: { displayText: button.text, id: button.data } })
+                    buttons.push({ index: index, quickReplyButton: { displayText: button.text, id: button.data } });
                     break;
             }
         }
         return buttons;
-    }
+    };
     let quoted;
     let msg_send = {};
     if (msg.forward) msg_send.forward = msg.forward;
@@ -460,11 +494,15 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
     if (msg.message?.image) msg_send.image = { url: msg.message.image };
     if (msg.message?.mentions) msg_send.mentions = msg.message.mentions;
     if (msg.message?.react) msg_send.react = { text: msg.message.react.text, key: msg.message.react.key };
-    if (msg.message?.location) msg_send.location = { degreesLatitude: msg.message.location.latitude, degreesLongitude: msg.message.location.longitude };
+    if (msg.message?.location)
+        msg_send.location = { degreesLatitude: msg.message.location.latitude, degreesLongitude: msg.message.location.longitude };
     if (msg.message?.vcard) msg_send.contacts = { contacts: msg.message.vcard.contacts };
     if (msg.message?.buttons) msg_send.buttons = await createButtons(msg.message.buttons);
     if (msg.message?.templateButtons) msg_send.templateButtons = await createTemplateButtons(msg.message.templateButtons);
-    if (msg.message?.section) { msg_send.sections = await createSections(msg.message.section); msg_send.buttonText = msg.message.section.button }
+    if (msg.message?.section) {
+        msg_send.sections = await createSections(msg.message.section);
+        msg_send.buttonText = msg.message.section.button;
+    }
 
     const connection = onlineSessions.get(uniqkey);
     if (!connection) {
@@ -473,24 +511,19 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
 
     try {
         if (simulate) {
-            await connection.utils.sendMessageWTyping(jid, msg_send, { quoted })
+            await connection.utils.sendMessageWTyping(jid, msg_send, { quoted });
         } else {
-            await connection.sock.sendMessage(jid, msg_send, { quoted })
+            await connection.sock.sendMessage(jid, msg_send, { quoted });
         }
         return true;
     } catch (error) {
         console.error(error);
-        return false
+        return false;
     }
-
-
 }
-
-
 
 (async () => {
     await Store.init();
     global.Store = Store;
     AutoReconnect();
-})()
-
+})();

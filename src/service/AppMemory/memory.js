@@ -2,20 +2,18 @@ const logger = require('../logger').default;
 const { writeFileSync, existsSync, readFileSync } = require('fs');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
-
 
 exports.default = () => {
-    const Sessions = new Map([])
-    const StorePath = path.join(__dirname, 'store')
-    const FileStore = path.resolve(StorePath, 'store.json')
+    const Sessions = new Map([]);
+    const StorePath = path.join(__dirname, 'store');
+    const FileStore = path.resolve(StorePath, 'store.json');
 
     const init = async () => {
         logger.debug({ FileStore }, 'Iniciando Appstore');
         !fs.existsSync(StorePath) && fs.mkdirSync(StorePath, { recursive: true, force: true });
         await reader();
-        return true
-    }
+        return true;
+    };
 
     const reader = async () => {
         if (existsSync(FileStore)) {
@@ -28,45 +26,36 @@ exports.default = () => {
         } else {
             writeFileSync(FileStore, JSON.stringify([]));
         }
-
-    }
+    };
 
     const updateFile = async () => {
         const values = await Sessions.entries();
         const json = JSON.stringify(Object.fromEntries(values));
         writeFileSync(FileStore, json);
-    }
+    };
 
-    const update = (key, data) => {
-        const old = get(key);
-        data.key = old.key;
-        Sessions.set(key, data);
-        return true
-
-    }
     const set = (key, data) => {
         Sessions.set(key, data);
         updateFile();
-        return data
-    }
+        return data;
+    };
     const exclude = (key) => {
         const result = Sessions.delete(key);
         updateFile();
-        return result
-    }
+        return result;
+    };
 
     const get = async (key) => {
         return await Sessions.get(key);
-    }
+    };
 
-    const getall = (key) => {
+    const getall = () => {
         return Sessions.entries();
-    }
+    };
 
     const has = (key) => {
         return Sessions.has(key);
-    }
-
+    };
 
     return {
         init: init,
@@ -77,5 +66,5 @@ exports.default = () => {
         getall,
         has,
         get
-    }
-}
+    };
+};
