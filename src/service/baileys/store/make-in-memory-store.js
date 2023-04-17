@@ -1,13 +1,26 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
+'use strict';
+var __importDefault =
+    (this && this.__importDefault) ||
+    function (mod) {
+        return mod && mod.__esModule ? mod : { default: mod };
+    };
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.waMessageID = exports.waChatKey = void 0;
-const { WAProto, DEFAULT_CONNECTION_CONFIG, jidNormalizedUser, toNumber, updateMessageWithReceipt, updateMessageWithReaction } = require('@adiwajshing/baileys')
-const make_ordered_dictionary_1 = __importDefault(require("./make-ordered-dictionary"));
+const {
+    WAProto,
+    DEFAULT_CONNECTION_CONFIG,
+    jidNormalizedUser,
+    toNumber,
+    updateMessageWithReceipt,
+    updateMessageWithReaction
+} = require('@adiwajshing/baileys');
+const make_ordered_dictionary_1 = __importDefault(require('./make-ordered-dictionary'));
 const waChatKey = (pin) => ({
-    key: (c) => (pin ? (c.pinned ? '1' : '0') : '') + (c.archived ? '0' : '1') + (c.conversationTimestamp ? c.conversationTimestamp.toString(16).padStart(8, '0') : '') + c.id,
+    key: (c) =>
+        (pin ? (c.pinned ? '1' : '0') : '') +
+        (c.archived ? '0' : '1') +
+        (c.conversationTimestamp ? c.conversationTimestamp.toString(16).padStart(8, '0') : '') +
+        c.id,
     compare: (k1, k2) => k2.localeCompare(k1)
 });
 exports.waChatKey = waChatKey;
@@ -18,7 +31,7 @@ exports.default = ({ logger: _logger, chatKey }) => {
     const logger = _logger || DEFAULT_CONNECTION_CONFIG.logger.child({ stream: 'in-mem-store' });
     chatKey = chatKey || (0, exports.waChatKey)(true);
     const KeyedDB = require('@adiwajshing/keyed-db').default;
-    const chats = new KeyedDB(chatKey, c => c.id);
+    const chats = new KeyedDB(chatKey, (c) => c.id);
     const messages = {};
     const contacts = {};
     const phoneContacts = {};
@@ -54,7 +67,7 @@ exports.default = ({ logger: _logger, chatKey }) => {
      * @param ev typically the event emitter from the socket connection
      */
     const bind = (ev) => {
-        ev.on('connection.update', update => {
+        ev.on('connection.update', (update) => {
             Object.assign(state, update);
         });
         ev.on('messaging-history.set', ({ chats: newChats, contacts: newContacts, messages: newMessages, isLatest }) => {
@@ -77,28 +90,27 @@ exports.default = ({ logger: _logger, chatKey }) => {
             }
             logger.debug({ messages: newMessages.length }, 'synced messages');
         });
-        ev.on('contacts.upsert', contacts => {
+        ev.on('contacts.upsert', (contacts) => {
             const oldContacts = PhonecontactsUpsert(contacts);
             logger.debug({ deletedContacts: oldContacts.size, contacts }, 'synced phone contacts');
         });
-        ev.on('contacts.update', updates => {
+        ev.on('contacts.update', (updates) => {
             for (const update of updates) {
                 if (contacts[update.id]) {
                     Object.assign(contacts[update.id], update);
                 } else if (phoneContacts[update.id]) {
                     Object.assign(phoneContacts[update.id], update);
-                }
-                else {
+                } else {
                     logger.debug({ update }, 'got update for non-existant contact');
                 }
             }
         });
-        ev.on('chats.upsert', newChats => {
+        ev.on('chats.upsert', (newChats) => {
             chats.upsert(...newChats);
         });
-        ev.on('chats.update', updates => {
+        ev.on('chats.update', (updates) => {
             for (let update of updates) {
-                const result = chats.update(update.id, chat => {
+                const result = chats.update(update.id, (chat) => {
                     if (update.unreadCount > 0) {
                         update = { ...update };
                         update.unreadCount = (chat.unreadCount || 0) + update.unreadCount;
@@ -114,17 +126,16 @@ exports.default = ({ logger: _logger, chatKey }) => {
             presences[id] = presences[id] || {};
             Object.assign(presences[id], update);
         });
-        ev.on('chats.delete', deletions => {
+        ev.on('chats.delete', (deletions) => {
             for (const item of deletions) {
                 if (chats.get(item)) {
                     chats.deleteById(item);
-                }else{
-                    console.log('chat for deletebyID Not Exists:',item)
+                } else {
+                    console.log('chat for deletebyID Not Exists:', item);
                 }
             }
         });
         ev.on('messages.upsert', ({ messages: newMessages, type }) => {
-
             switch (type) {
                 case 'append':
                 case 'notify':
@@ -147,7 +158,7 @@ exports.default = ({ logger: _logger, chatKey }) => {
                     break;
             }
         });
-        ev.on('messages.update', updates => {
+        ev.on('messages.update', (updates) => {
             for (const { update, key } of updates) {
                 const list = assertMessageList(key.remoteJid);
                 const result = list.updateAssign(key.id, update);
@@ -156,27 +167,25 @@ exports.default = ({ logger: _logger, chatKey }) => {
                 }
             }
         });
-        ev.on('messages.delete', item => {
+        ev.on('messages.delete', (item) => {
             if ('all' in item) {
                 const list = messages[item.jid];
                 list === null || list === void 0 ? void 0 : list.clear();
-            }
-            else {
+            } else {
                 const jid = item.keys[0].remoteJid;
                 const list = messages[jid];
                 if (list) {
-                    const idSet = new Set(item.keys.map(k => k.id));
-                    list.filter(m => !idSet.has(m.key.id));
+                    const idSet = new Set(item.keys.map((k) => k.id));
+                    list.filter((m) => !idSet.has(m.key.id));
                 }
             }
         });
-        ev.on('groups.update', updates => {
+        ev.on('groups.update', (updates) => {
             for (const update of updates) {
                 const id = update.id;
                 if (groupMetadata[id]) {
                     Object.assign(groupMetadata[id], update);
-                }
-                else {
+                } else {
                     logger.debug({ update }, 'got update for non-existant group metadata');
                 }
             }
@@ -186,7 +195,7 @@ exports.default = ({ logger: _logger, chatKey }) => {
             if (metadata) {
                 switch (action) {
                     case 'add':
-                        metadata.participants.push(...participants.map(id => ({ id, isAdmin: false, isSuperAdmin: false })));
+                        metadata.participants.push(...participants.map((id) => ({ id, isAdmin: false, isSuperAdmin: false })));
                         break;
                     case 'demote':
                     case 'promote':
@@ -197,12 +206,12 @@ exports.default = ({ logger: _logger, chatKey }) => {
                         }
                         break;
                     case 'remove':
-                        metadata.participants = metadata.participants.filter(p => !participants.includes(p.id));
+                        metadata.participants = metadata.participants.filter((p) => !participants.includes(p.id));
                         break;
                 }
             }
         });
-        ev.on('message-receipt.update', updates => {
+        ev.on('message-receipt.update', (updates) => {
             for (const { key, receipt } of updates) {
                 const obj = messages[key.remoteJid];
                 const msg = obj === null || obj === void 0 ? void 0 : obj.get(key.id);
@@ -251,28 +260,31 @@ exports.default = ({ logger: _logger, chatKey }) => {
         loadMessages: async (jid, count, cursor) => {
             const list = assertMessageList(jid);
             const mode = !cursor || 'before' in cursor ? 'before' : 'after';
-            const cursorKey = !!cursor ? ('before' in cursor ? cursor.before : cursor.after) : undefined;
+            const cursorKey = cursor ? ('before' in cursor ? cursor.before : cursor.after) : undefined;
             const cursorValue = cursorKey ? list.get(cursorKey.id) : undefined;
             let messages;
             if (list && mode === 'before' && (!cursorKey || cursorValue)) {
                 if (cursorValue) {
-                    const msgIdx = list.array.findIndex(m => m.key.id === (cursorKey === null || cursorKey === void 0 ? void 0 : cursorKey.id));
+                    const msgIdx = list.array.findIndex(
+                        (m) => m.key.id === (cursorKey === null || cursorKey === void 0 ? void 0 : cursorKey.id)
+                    );
                     messages = list.array.slice(0, msgIdx);
-                }
-                else {
+                } else {
                     messages = list.array;
                 }
                 const diff = count - messages.length;
                 if (diff < 0) {
                     messages = messages.slice(-count); // get the last X messages
                 }
-            }
-            else {
+            } else {
                 messages = [];
             }
             return messages;
         },
-        loadMessage: async (jid, id) => { var _a; return (_a = messages[jid]) === null || _a === void 0 ? void 0 : _a.get(id); },
+        loadMessage: async (jid, id) => {
+            var _a;
+            return (_a = messages[jid]) === null || _a === void 0 ? void 0 : _a.get(id);
+        },
         mostRecentMessage: async (jid) => {
             var _a;
             const message = (_a = messages[jid]) === null || _a === void 0 ? void 0 : _a.array.slice(-1)[0];

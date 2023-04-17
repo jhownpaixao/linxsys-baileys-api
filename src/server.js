@@ -1,56 +1,53 @@
-const express = require('express')
-const path = require('path')
-const dotenv = require('dotenv')
-const cookieParser = require('cookie-parser')
+const express = require('express');
+const path = require('path');
+const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
 const logger = require('./service/logger.js').default;
-const moment = require('moment');
+/* const moment = require('moment'); */
 const cors = require('cors');
-const https = require('https');
-const fs = require('fs');
-const { Welcome } = require('./utils/welcome')
+/* const https = require('https');
+const fs = require('fs'); */
+const { Welcome } = require('./utils/welcome');
+const formidable = require('express-formidable');
 const pinoHttp = require('pino-http')({
-    logger,
+    logger
     // serializers: {
     //    req(req) {
     //      req.body = req.raw.body;
     //      return req;
     //    },
     //  },
-
-})
+});
 const app = express();
-const publicDirectory = path.join(__dirname, './public')
+const publicDirectory = path.join(__dirname, './public');
 const porta = process.env.APP_PORT || 4000;
 
-dotenv.config({ path: './.env' })
+dotenv.config({ path: './.env' });
 
-app.use(express.static(publicDirectory))
-app.use('/modulos', express.static(path.join(__dirname, '/node_modules')))
-app.use(express.urlencoded({ extended: false }))
-app.use(express.json())
-app.use(cookieParser())
-app.use(pinoHttp)
-app.use(cors({
-    origin: String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}`
-}))
-
-
+app.use(express.static(publicDirectory));
+app.use('/modulos', express.static(path.join(__dirname, '/node_modules')));
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(cookieParser());
+app.use(pinoHttp);
+/* app.use(formidable()); */
+app.use(
+    cors({
+        origin: String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}`
+    })
+);
 
 process.on('uncaughtException', function (error) {
-    logger.error("erro logger", error.stack)
-    console.log("erro console", error);
+    logger.error('erro logger', error.stack);
+    console.log('erro console', error);
 });
 
-
-app.use('/', require('./routes'))
-
-const baseDir = `${__dirname}/build/`
-app.use(express.static(baseDir))
-
+app.use('/', require('./routes'));
+app.use(express.static(`${__dirname}/build/`));
 
 app.listen(porta, () => {
     Welcome();
-})
+});
 
 /* const SSL_Config = {
    key: fs.readFileSync(path.join(__dirname, 'ssl', 'server.key')),
