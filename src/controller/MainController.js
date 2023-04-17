@@ -1,4 +1,4 @@
-const { StartSession, onlineSessions } = require('../service/baileys/baileys');
+const { StartSession, onlineSessions, inConnection } = require('../service/baileys/baileys');
 const AppStore = require('../service/AppMemory/memory').default;
 const crypto = require('crypto');
 const Store = AppStore();
@@ -227,6 +227,67 @@ exports.SendText = async (req, res) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
     }
 
+    inConnection.get(decoded.uniqkey);
+    if (inConnection) {
+        return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
+    }
+
+    const [result] = await connection.sock.onWhatsApp(number);
+    if (!result?.exists) {
+        return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
+    }
+
+    try {
+        const send = await PrepareAndSendMessage(decoded.uniqkey, result.jid, {
+            message: {
+                text: body
+            }
+        });
+
+        if (!send) {
+            return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
+        }
+        return res.status(200).json({ message: 'Mensagem enviada', status: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
+    }
+};
+
+exports.SendImage = async (req, res) => {
+    const { session } = req.params;
+    const { number, body } = req.body;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session || !number || !body) {
+        return res.status(400).json({ error: 'Requisição incompleta', status: false });
+    }
+
+    if (!token) {
+        return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (!decoded) {
+        return res.status(403).json({ error: 'Autorização inválida', status: false });
+    }
+    if (!Store.has(decoded.session)) {
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+
+    const sessionData = await Store.get(decoded.session);
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token', status: false });
+    }
+
+    const connection = onlineSessions.get(decoded.uniqkey);
+    if (!connection) {
+        return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
+    }
+
     const [result] = await connection.sock.onWhatsApp(number);
     if (!result?.exists) {
         return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
@@ -282,10 +343,19 @@ exports.ValidateNumber = async (req, res) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada' });
     }
 
-    /* TO-DO */
+    inConnection.get(decoded.uniqkey);
+    if (inConnection) {
+        return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
+    }
 
+    /* filter */
+    let n = String(number);
+    n.replace(/[^0-9]/g, '');
+    if (!n.startsWith('55')) n = '55' + n;
+
+    /* TO-DO */
     try {
-        const [result] = await connection.sock.onWhatsApp(number);
+        const [result] = await connection.sock.onWhatsApp(n);
         if (result.exists) {
             return res.status(200).json({ exists: true, jid: result.jid });
         }
