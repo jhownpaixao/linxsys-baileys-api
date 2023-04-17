@@ -351,7 +351,7 @@ exports.ValidateNumber = async (req, res) => {
     /* filter */
     let n = String(number);
     n.replace(/[^0-9]/g, '');
-    if (!n.startsWith('55')) n = '55' + n; /* replicar */
+    if (!n.startsWith('55')) n = '55' + n; /* replicar ok */
 
     /* TO-DO */
     try {
