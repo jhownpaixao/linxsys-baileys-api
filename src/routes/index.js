@@ -1,6 +1,5 @@
 const express = require('express');
 const MainController = require('../controller/MainController');
-const formidable = require('express-formidable');
 const router = express.Router();
 
 /* Session */
