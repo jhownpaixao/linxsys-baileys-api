@@ -5,6 +5,23 @@ const Store = AppStore();
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = 'RDA36fçssa1';
 const webhooks = require('node-webhooks');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const uploadPath = path.resolve(__dirname, '../../public/uploads');
+const storage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+        !fs.existsSync(uploadPath) && fs.mkdirSync(uploadPath, { recursive: true, force: true });
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        var name = Date.now() + path.extname(file.originalname);
+        req.nameFile = name;
+        cb(null, name);
+    }
+});
+exports.upload = multer({ storage });
 
 global.webhook = new webhooks({ db: {} });
 
@@ -110,7 +127,7 @@ exports.SessionDelete = async (req, res) => {
     }
 
     const online = onlineSessions.get(sessionData.uniqkey);
-    if (online) {
+    if (online && online !== 'undefined') {
         await online.exclude();
     }
 
@@ -227,12 +244,17 @@ exports.SendText = async (req, res) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
     }
 
-    inConnection.get(decoded.uniqkey);
-    if (inConnection) {
+    const inProcess = inConnection.get(decoded.uniqkey);
+    if (inProcess) {
         return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
     }
 
-    const [result] = await connection.sock.onWhatsApp(number);
+    /* filter */
+    let n = String(number);
+    n.replace(/[^0-9]/g, '');
+    if (!n.startsWith('55')) n = '55' + n; /* replicar ok */
+
+    const [result] = await connection.sock.onWhatsApp(n);
     if (!result?.exists) {
         return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
     }
@@ -256,9 +278,17 @@ exports.SendText = async (req, res) => {
 
 exports.SendImage = async (req, res) => {
     const { session } = req.params;
-    const { number, body } = req.body;
+    const { number, type, nameFile, jid_conn } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
+    const file = path.resolve(uploadPath, req.nameFile);
+
+    let msgObj = {
+        mimetype: type,
+        fileName: nameFile
+    };
+
+    /*
     if (!session || !number || !body) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
@@ -308,6 +338,7 @@ exports.SendImage = async (req, res) => {
         console.log(error);
         return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
     }
+    */
 };
 
 exports.ValidateNumber = async (req, res) => {
@@ -343,8 +374,8 @@ exports.ValidateNumber = async (req, res) => {
         return res.status(406).json({ error: 'Esta sessão não está conectada' });
     }
 
-    inConnection.get(decoded.uniqkey);
-    if (inConnection) {
+    const inProcess = inConnection.get(decoded.uniqkey);
+    if (inProcess) {
         return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
     }
 

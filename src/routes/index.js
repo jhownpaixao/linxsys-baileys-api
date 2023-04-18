@@ -1,6 +1,6 @@
 const express = require('express');
 const MainController = require('../controller/MainController');
-
+const formidable = require('express-formidable');
 const router = express.Router();
 
 /* Session */
@@ -13,6 +13,6 @@ router.get('/:session/delete', MainController.SessionDelete);
 
 /* Message */
 router.post('/:session/message/send-text', MainController.SendText);
-router.post('/:session/message/send-image', MainController.SendImage);
+router.post('/:session/message/send-image', /* MainController.upload('file'), */ MainController.SendImage);
 
 module.exports = router;

@@ -200,10 +200,6 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         sock.logout();
         await destroy(logout);
         if (fs.existsSync(tokenpath)) fs.rmdirSync(tokenpath, { recursive: true, force: true });
-
-        let sessionData = await global.Store.get(session);
-        delete sessionData.connection;
-        global.Store.set(session, sessionData);
     };
 
     const destroy = async (logout = true) => {
@@ -218,6 +214,10 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             storeReadedId.delete(uniqkey);
             RemoveStoreSaveID(uniqkey);
             inConnection.delete(uniqkey);
+
+            let sessionData = await global.Store.get(session);
+            delete sessionData.connection;
+            global.Store.set(session, sessionData);
         }
     };
     const handleConnectionClose = async () => {

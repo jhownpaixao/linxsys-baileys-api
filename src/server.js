@@ -8,7 +8,6 @@ const cors = require('cors');
 /* const https = require('https');
 const fs = require('fs'); */
 const { Welcome } = require('./utils/welcome');
-const formidable = require('express-formidable');
 const pinoHttp = require('pino-http')({
     logger
     // serializers: {
@@ -30,7 +29,6 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(pinoHttp);
-/* app.use(formidable()); */
 app.use(
     cors({
         origin: String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}`
