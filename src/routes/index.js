@@ -12,6 +12,6 @@ router.get('/:session/delete', MainController.SessionDelete);
 
 /* Message */
 router.post('/:session/message/send-text', MainController.SendText);
-router.post('/:session/message/send-image', /* MainController.upload('file'), */ MainController.SendImage);
+router.post('/:session/message/send-image', MainController.upload.single('image'), MainController.SendImage);
 
 module.exports = router;

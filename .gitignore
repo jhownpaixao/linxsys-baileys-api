@@ -3,3 +3,5 @@ src/service/AppMemory/store/
 src/service/baileys/cache/
 logs/
 .env
+public/
+src/controller/MainController.js

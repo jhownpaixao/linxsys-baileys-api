@@ -118,7 +118,9 @@ async function sendMessageWTyping(sock, msg, remoteJid, replay) {
             sock.sendPresenceUpdate('composing', remoteJid);
             delay(2000);
             sock.sendPresenceUpdate('paused', remoteJid);
-            const response = sock.sendMessage(remoteJid, msg, replay);
+            /* const response = sock.sendMessage(remoteJid, msg, replay); */
+            const response = sendMessage(sock, remoteJid, msg, replay);
+
             resolve(response);
         } catch (error) {
             reject(error);
@@ -131,12 +133,22 @@ async function sendMessageWTyping(sock, msg, remoteJid, replay) {
  * @param sock Socket de conexão da baileys
  */
 async function sendMessage(sock, remoteJid, msg, reply) {
-    return new Promise((resolve) => {
+    if (!sock) return false;
+    await sock
+        .sendMessage(remoteJid, msg, reply)
+        .then((result) => {
+            return true;
+        })
+        .catch((erro) => {
+            console.log(erro);
+            return false;
+        });
+    /* return new Promise((resolve) => {
         if (!sock) return false;
         const response = sock.sendMessage(remoteJid, msg, reply);
         delay(1000);
         resolve(response);
-    });
+    }); */
 }
 
 /**

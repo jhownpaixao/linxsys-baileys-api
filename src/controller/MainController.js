@@ -1,5 +1,6 @@
 const { StartSession, onlineSessions, inConnection } = require('../service/baileys/baileys');
 const AppStore = require('../service/AppMemory/memory').default;
+const logger = require('../service/logger').default;
 const crypto = require('crypto');
 const Store = AppStore();
 const jwt = require('jsonwebtoken');
@@ -8,8 +9,8 @@ const webhooks = require('node-webhooks');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
 const uploadPath = path.resolve(__dirname, '../../public/uploads');
+
 const storage = multer.diskStorage({
     destination: async (req, file, cb) => {
         !fs.existsSync(uploadPath) && fs.mkdirSync(uploadPath, { recursive: true, force: true });
@@ -17,7 +18,7 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         var name = Date.now() + path.extname(file.originalname);
-        req.nameFile = name;
+        req.file = name;
         cb(null, name);
     }
 });
@@ -219,48 +220,12 @@ exports.SendText = async (req, res) => {
     if (!session || !number || !body) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida', status: false });
-    }
-    if (!Store.has(decoded.session)) {
-        return res.status(406).json({
-            error: 'A sessão não existe'
-        });
-    }
-
-    const sessionData = await Store.get(decoded.session);
-    if (sessionData.uniqkey !== decoded.uniqkey) {
-        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token', status: false });
-    }
-
-    const connection = onlineSessions.get(decoded.uniqkey);
-    if (!connection) {
-        return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
-    }
-
-    const inProcess = inConnection.get(decoded.uniqkey);
-    if (inProcess) {
-        return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
-    }
-
-    /* filter */
-    let n = String(number);
-    n.replace(/[^0-9]/g, '');
-    if (!n.startsWith('55')) n = '55' + n; /* replicar ok */
-
-    const [result] = await connection.sock.onWhatsApp(n);
-    if (!result?.exists) {
-        return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
-    }
+    const verify = await verifyRequestToSendMessage(token, number);
+    if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
     try {
-        const send = await PrepareAndSendMessage(decoded.uniqkey, result.jid, {
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, {
             message: {
                 text: body
             }
@@ -278,67 +243,34 @@ exports.SendText = async (req, res) => {
 
 exports.SendImage = async (req, res) => {
     const { session } = req.params;
-    const { number, type, nameFile, jid_conn } = req.body;
+    const { number, body } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    const file = path.resolve(uploadPath, req.nameFile);
-
-    let msgObj = {
-        mimetype: type,
-        fileName: nameFile
-    };
-
-    /*
-    if (!session || !number || !body) {
+    if (!session || !number || !body || !req.file) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
 
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada', status: false });
-    }
+    const verify = await verifyRequestToSendMessage(token, number);
+    if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida', status: false });
-    }
-    if (!Store.has(decoded.session)) {
-        return res.status(406).json({
-            error: 'A sessão não existe'
-        });
-    }
-
-    const sessionData = await Store.get(decoded.session);
-    if (sessionData.uniqkey !== decoded.uniqkey) {
-        return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token', status: false });
-    }
-
-    const connection = onlineSessions.get(decoded.uniqkey);
-    if (!connection) {
-        return res.status(406).json({ error: 'Esta sessão não está conectada', status: false });
-    }
-
-    const [result] = await connection.sock.onWhatsApp(number);
-    if (!result?.exists) {
-        return res.status(203).json({ error: 'O numero deste contato não foi encontrado', status: false });
-    }
+    const msgObj = {
+        caption: body,
+        message: {
+            mimetype: req.file.mimetype,
+            fileName: req.file.originalname,
+            image: req.file.path
+        }
+    };
 
     try {
-        const send = await PrepareAndSendMessage(decoded.uniqkey, result.jid, {
-            message: {
-                text: body
-            }
-        });
-
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj);
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
         return res.status(200).json({ message: 'Mensagem enviada', status: true });
     } catch (error) {
-        console.log(error);
         return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
     }
-    */
 };
 
 exports.ValidateNumber = async (req, res) => {
@@ -387,9 +319,10 @@ exports.ValidateNumber = async (req, res) => {
     /* TO-DO */
     try {
         const [result] = await connection.sock.onWhatsApp(n);
-        if (result.exists) {
-            return res.status(200).json({ exists: true, jid: result.jid });
+        if (!result?.exists) {
+            return res.status(200).json({ exists: false, jid: 'unknow' });
         }
+        return res.status(200).json({ exists: true, jid: result.jid });
     } catch (error) {
         console.log(error);
         return res.status(200).json({ exists: false, jid: 'unknow' });
@@ -415,6 +348,13 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
        message: {
  
           image: '',
+          audio: '',
+          video: '',
+          document: '',
+
+          mimetype: '',
+          fileName: '',
+
           text: '',
           quoted: '',
  
@@ -523,6 +463,11 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
     if (msg.message?.quoted) quoted = msg.message.quoted;
     if (msg.message?.text) msg_send.text = msg.message.text;
     if (msg.message?.image) msg_send.image = { url: msg.message.image };
+    if (msg.message?.audio) msg_send.audio = { url: msg.message.audio };
+    if (msg.message?.video) msg_send.video = { url: msg.message.video };
+    if (msg.message?.document) msg_send.document = { url: msg.message.document };
+    if (msg.message?.mimetype) msg_send.mimetype = msg.message.mimetype;
+    if (msg.message?.fileName) msg_send.fileName = msg.message.fileName;
     if (msg.message?.mentions) msg_send.mentions = msg.message.mentions;
     if (msg.message?.react) msg_send.react = { text: msg.message.react.text, key: msg.message.react.key };
     if (msg.message?.location)
@@ -540,6 +485,7 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
         return false;
     }
 
+    logger.info({ msg_send, jid, quoted }, 'enviando mensagem');
     try {
         if (simulate) {
             await connection.utils.sendMessageWTyping(jid, msg_send, { quoted });
@@ -548,10 +494,91 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
         }
         return true;
     } catch (error) {
-        console.error(error);
+        logger.error({ msg_send, jid, quoted, error }, 'erro ao enviar a mensagem');
+        console.log(error);
         return false;
     }
 }
+
+const verifyAuthentication = async (token) => {
+    let response = {
+        code: 0,
+        msg: '',
+        process: false,
+        data: {}
+    };
+    if (!token) {
+        response.code = 403;
+        response.msg = 'Nenhuma credencial encontrada';
+        return response;
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (!decoded) {
+        response.code = 403;
+        response.msg = 'Autorização inválida';
+        return response;
+    }
+    if (!Store.has(decoded.session)) {
+        response.code = 406;
+        response.msg = 'A sessão não existe';
+        return response;
+    }
+
+    const sessionData = await Store.get(decoded.session);
+    if (sessionData.uniqkey !== decoded.uniqkey) {
+        response.code = 403;
+        response.msg = 'A autorização é inválida para esta sessão, por favor atualize o token';
+        return response;
+    }
+    response.data = decoded;
+    response.process = true;
+    return response;
+};
+const verifyRequestToSendMessage = async (token, phone) => {
+    let response = {
+        code: 0,
+        msg: '',
+        process: false,
+        auth: {},
+        data: {}
+    };
+
+    const auth = await verifyAuthentication(token);
+    if (!auth.process) return auth;
+    response.auth = auth.data;
+
+    const connection = onlineSessions.get(auth.data.uniqkey);
+    if (!connection) {
+        response.code = 406;
+        response.msg = 'Esta sessão não está conectada';
+        return response;
+    }
+
+    const inProcess = inConnection.get(auth.data.uniqkey);
+    if (inProcess) {
+        response.code = 406;
+        response.msg = 'Esta conexão ainda não está pronta';
+        return response;
+    }
+
+    /* filter */
+    let n = String(phone);
+    n.replace(/[^0-9]/g, '');
+    if (!n.startsWith('55')) n = '55' + n; /* replicar ok */
+
+    const [result] = await connection.sock.onWhatsApp(n);
+    if (!result?.exists) {
+        response.code = 203;
+        response.msg = 'O numero deste contato não foi encontrado';
+        return response;
+    }
+
+    response.data = { jid: result.jid, connection: connection };
+    response.process = true;
+    return response;
+};
 
 (async () => {
     await Store.init();
