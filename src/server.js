@@ -21,7 +21,7 @@ const app = express();
 const publicDirectory = path.join(__dirname, './public');
 const porta = process.env.APP_PORT || 4000;
 
-dotenv.config({ path: './.env' });
+dotenv.config();
 
 app.use(express.static(publicDirectory));
 app.use('/modulos', express.static(path.join(__dirname, '/node_modules')));
@@ -31,10 +31,10 @@ app.use(cookieParser());
 app.use(pinoHttp);
 app.use(
     cors({
-        origin: String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}`
+        origin: '*' /* String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}` */
     })
 );
-
+console.log(String(process.env.FRONT_END_URL).split(','));
 process.on('uncaughtException', function (error) {
     logger.error('erro logger', error.stack);
     console.log('erro console', error);
