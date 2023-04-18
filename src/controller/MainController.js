@@ -273,6 +273,38 @@ exports.SendImage = async (req, res) => {
     }
 };
 
+exports.SendAudio = async (req, res) => {
+    const { session } = req.params;
+    const { number, recorded } = req.body;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!session || !number || !req.file) {
+        return res.status(400).json({ error: 'Requisição incompleta', status: false });
+    }
+    const ptt = !!(recorded && recorded == 'true');
+    const verify = await verifyRequestToSendMessage(token, number);
+    if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
+
+    const msgObj = {
+        message: {
+            mimetype: req.file.mimetype,
+            fileName: req.file.originalname,
+            audio: req.file.path,
+            ptt
+        }
+    };
+
+    try {
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj);
+        if (!send) {
+            return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
+        }
+        return res.status(200).json({ message: 'Mensagem enviada', status: true });
+    } catch (error) {
+        return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
+    }
+};
+
 exports.ValidateNumber = async (req, res) => {
     const { session, number } = req.params;
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -351,6 +383,7 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
           audio: '',
           video: '',
           document: '',
+          ptt:false,
 
           mimetype: '',
           fileName: '',
@@ -467,6 +500,7 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
     if (msg.message?.video) msg_send.video = { url: msg.message.video };
     if (msg.message?.document) msg_send.document = { url: msg.message.document };
     if (msg.message?.mimetype) msg_send.mimetype = msg.message.mimetype;
+    if (msg.message?.ptt) msg_send.ptt = msg.message.ptt;
     if (msg.message?.fileName) msg_send.fileName = msg.message.fileName;
     if (msg.message?.mentions) msg_send.mentions = msg.message.mentions;
     if (msg.message?.react) msg_send.react = { text: msg.message.react.text, key: msg.message.react.key };

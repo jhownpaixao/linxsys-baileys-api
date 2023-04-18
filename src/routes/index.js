@@ -13,5 +13,5 @@ router.get('/:session/delete', MainController.SessionDelete);
 /* Message */
 router.post('/:session/message/send-text', MainController.SendText);
 router.post('/:session/message/send-image', MainController.upload.single('image'), MainController.SendImage);
-
+router.post('/:session/message/send-audio', MainController.upload.single('audio'), MainController.SendAudio);
 module.exports = router;
