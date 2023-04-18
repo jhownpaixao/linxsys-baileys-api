@@ -31,10 +31,9 @@ app.use(cookieParser());
 app.use(pinoHttp);
 app.use(
     cors({
-        origin: '*' /* String(process.env.FRONT_END_URL).split(',') || `http://localhost:${porta}` */
+        origin: process.env.FRONT_END_URL || `http://localhost:${porta}`
     })
 );
-console.log(String(process.env.FRONT_END_URL).split(','));
 process.on('uncaughtException', function (error) {
     logger.error('erro logger', error.stack);
     console.log('erro console', error);
