@@ -1,6 +1,5 @@
 const makeWASocket = require('@adiwajshing/baileys').default;
 const {
-    delay,
     DisconnectReason,
     isJidBroadcast,
     isJidGroup,
@@ -100,32 +99,41 @@ async function ReadStore(session, uniqkey, userStore) {
 }
 
 /**
+ * Aguarda um determinado tempo em milisegundos
+ * @date 03/05/2023 - 18:04:15
+ *
+ * @param {number} ms
+ * @returns {Promisse<void>}
+ */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
  * Envia uma mensagem de forma 'Humanizada' (útil para os bots)
  * @param sock Socket da conexão
  * @param msg Objeto de mensagem
  * @param remoteJid O JID do destinatário
  * @param replay replay da mensagem
  */
-async function sendMessageWTyping(sock, msg, remoteJid, replay) {
-    return new Promise((resolve, reject) => {
-        if (!replay) {
-            replay = {};
-        }
-        replay.disappearingMessagesInChat = false;
-        try {
-            sock.presenceSubscribe(remoteJid);
-            delay(500);
-            sock.sendPresenceUpdate('composing', remoteJid);
-            delay(2000);
-            sock.sendPresenceUpdate('paused', remoteJid);
-            /* const response = sock.sendMessage(remoteJid, msg, replay); */
-            const response = sendMessage(sock, remoteJid, msg, replay);
+async function sendMessageWTyping(simulation, sock, msg, remoteJid, replay) {
+    if (!replay) {
+        replay = {};
+    }
+    replay.disappearingMessagesInChat = false;
+    const params = await MountSimulationOptions(simulation, msg);
+    try {
+        sock.presenceSubscribe(remoteJid);
+        sock.sendPresenceUpdate('available', remoteJid);
+        await sleep(params.startDelay);
+        sock.sendPresenceUpdate(params.presenceType, remoteJid);
+        await sleep(params.endDelay);
 
-            resolve(response);
-        } catch (error) {
-            reject(error);
-        }
-    });
+        const result = await sendMessage(sock, remoteJid, msg, replay);
+        sock.sendPresenceUpdate('paused', remoteJid);
+        return result;
+    } catch (error) {
+        logger.error(error, 'Erro ao enviar a mensagem');
+        return false;
+    }
 }
 
 /**
@@ -143,12 +151,51 @@ async function sendMessage(sock, remoteJid, msg, reply) {
             console.log(erro);
             return false;
         });
-    /* return new Promise((resolve) => {
-        if (!sock) return false;
-        const response = sock.sendMessage(remoteJid, msg, reply);
-        delay(1000);
-        resolve(response);
-    }); */
+}
+
+/**
+ * Opções padrões da simulação
+ * @date 03/05/2023 - 18:03:43
+ *
+ * @type {{ ActivateHumanizedSimulation: boolean; AudioBasedRecordingSpeed: boolean; TypingSpeed: number; AudioRecordingSpeed: number; }}
+ */
+const SimulationDefaultOptions = {
+    ActivateHumanizedSimulation: false,
+    AudioBasedRecordingSpeed: true,
+    TypingSpeed: 300,
+    AudioRecordingSpeed: 2000
+};
+
+/**
+ * Constrói os parametros de simulação...
+ * @param options Opções para criaçao da simulação
+ */
+async function MountSimulationOptions(simulation, msg) {
+    simulation = Object.assign({}, SimulationDefaultOptions, simulation);
+    let params = {
+        presenceType: 'composing',
+        startDelay: 500,
+        endDelay: 2000
+    };
+
+    if (simulation) {
+        switch (simulation.type) {
+            case 'image':
+                params.endDelay = msg.caption.length * simulation.TypingSpeed;
+                params.presenceType = 'composing';
+                break;
+            case 'audio':
+                params.endDelay = simulation.AudioRecordingSpeed;
+                params.presenceType = 'recording';
+                break;
+            case 'text':
+                params.endDelay = msg.text.length * simulation.TypingSpeed;
+                params.presenceType = 'composing';
+                break;
+        }
+    }
+
+    return params;
 }
 
 /**
@@ -191,6 +238,17 @@ async function FindMsgListResponse(upsert) {
     return listResponse;
 }
 
+/**
+ * Cria uma nova sessão do whatsapp
+ * @date 03/05/2023 - 18:06:32
+ *
+ * @async
+ * @param {string|number} session
+ * @param {string} uniqkey
+ * @param {Response} [res=null]
+ * @param {string} [webhook=null]
+ * @returns {Promisse<void>}
+ */
 exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     if (webhook) console.log('Session starting with webhook ', webhook);
     let connectionState = { connection: 'close' };
@@ -345,7 +403,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
 
         const utils = {
             sendMessage: async (remoteJid, msg, reply) => await sendMessage(sock, remoteJid, msg, reply),
-            sendMessageWTyping: async (remoteJid, msg, replay) => await sendMessageWTyping(sock, msg, remoteJid, replay)
+            sendMessageWTyping: async (simulation, remoteJid, msg, replay) =>
+                await sendMessageWTyping(simulation, sock, msg, remoteJid, replay)
         };
         sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils });
 
@@ -506,6 +565,12 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
      */
 };
 
+/**
+ * Verfica se uma determinada sessão está ativa
+ * @date 03/05/2023 - 18:07:05
+ *
+ * @param {string|number} key
+ */
 exports.sessionExists = (key) => {
     return global.Store.has(key);
 };

@@ -214,22 +214,28 @@ exports.SessionStatus = async (req, res) => {
 
 exports.SendText = async (req, res) => {
     const { session } = req.params;
-    const { number, body } = req.body;
+    const { number, body, simulation } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !body) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
 
+    if (simulation) simulation.type = 'text';
     const verify = await verifyRequestToSendMessage(token, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
     try {
-        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, {
-            message: {
-                text: body
-            }
-        });
+        const send = await PrepareAndSendMessage(
+            verify.auth.uniqkey,
+            verify.data.jid,
+            {
+                message: {
+                    text: body
+                }
+            },
+            simulation
+        );
 
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
@@ -244,15 +250,19 @@ exports.SendText = async (req, res) => {
 exports.SendImage = async (req, res) => {
     const { session } = req.params;
     const { number, body } = req.body;
+    let { simulation } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !body || !req.file) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
-
     const verify = await verifyRequestToSendMessage(token, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
+    if (simulation) {
+        simulation = JSON.parse(simulation);
+        simulation.type = 'image';
+    }
     const msgObj = {
         caption: body,
         message: {
@@ -263,7 +273,7 @@ exports.SendImage = async (req, res) => {
     };
 
     try {
-        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj);
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj, simulation);
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
@@ -276,6 +286,7 @@ exports.SendImage = async (req, res) => {
 exports.SendAudio = async (req, res) => {
     const { session } = req.params;
     const { number, recorded } = req.body;
+    let { simulation } = req.body;
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !req.file) {
@@ -284,6 +295,11 @@ exports.SendAudio = async (req, res) => {
     const ptt = !!(recorded && recorded == 'true');
     const verify = await verifyRequestToSendMessage(token, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
+
+    if (simulation) {
+        simulation = JSON.parse(simulation);
+        simulation.type = 'audio';
+    }
 
     const msgObj = {
         message: {
@@ -295,7 +311,7 @@ exports.SendAudio = async (req, res) => {
     };
 
     try {
-        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj);
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj, simulation);
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
@@ -368,9 +384,9 @@ exports.ValidateNumber = async (req, res) => {
  * @param { number } conn_id ID da conexão
  * @param { string } jid JID do numero para o qual será enviado a mensagem
  * @param { object } msg Objeto de mensagem à ser enviado
- * @param { boolean } simulate Para siumlar o evento Typing (HUMANIZAR)
+ * @param { boolean | Array<String> } simulation Para siumlar o evento Typing (HUMANIZAR)
  */
-async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
+async function PrepareAndSendMessage(uniqkey, jid, msg, simulation = false) {
     /* let msg = {
        type: 'text',
        title: '',
@@ -439,7 +455,6 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
           headerType
        },
     } */
-
     const createSections = async (section) => {
         return new Promise((resolve) => {
             let result = [];
@@ -521,8 +536,8 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulate = false) {
 
     logger.info({ msg_send, jid, quoted }, 'enviando mensagem');
     try {
-        if (simulate) {
-            await connection.utils.sendMessageWTyping(jid, msg_send, { quoted });
+        if (simulation && simulation.ActivateHumanizedSimulation) {
+            await connection.utils.sendMessageWTyping(simulation, jid, msg_send, { quoted });
         } else {
             await connection.sock.sendMessage(jid, msg_send, { quoted });
         }
