@@ -144,7 +144,7 @@ async function sendMessage(sock, remoteJid, msg, reply) {
     if (!sock) return false;
     await sock
         .sendMessage(remoteJid, msg, reply)
-        .then((result) => {
+        .then(() => {
             return true;
         })
         .catch((erro) => {
