@@ -30,7 +30,7 @@ const AutoReconnect = async () => {
     const sessions = Store.getall();
     for (const [session, data] of sessions) {
         if (!data.connection) continue;
-        console.log('Iniciando Auto Conexão para: ', data.uniqkey, data.name);
+        console.log('Iniciando Auto Conexão para: ', session, ` | ${data.connection.nome}(${data.connection.numero})`);
         logger.info(data, 'Conexão automática');
         await StartSession(session, data.connection.id, null, data.connection.webhook);
     }
