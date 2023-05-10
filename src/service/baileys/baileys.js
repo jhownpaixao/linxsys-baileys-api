@@ -251,12 +251,13 @@ async function FindMsgListResponse(upsert) {
  */
 exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     if (webhook) console.log('Session starting with webhook ', webhook);
+    logger.info({ session, webhook, uniqkey }, 'Iniciando sessão');
     let connectionState = { connection: 'close' };
     const connStore = makeInMemoryStore({ logger });
     let qr = inConnection.get(uniqkey);
 
     if (qr) {
-        console.log('Esta conexão não pode ser realizada, pois uma instancia ainda está se conectando');
+        console.log('Esta conexão não pode ser realizada, pois uma instancia ainda está se conectando', session);
         logger.debug({ session, uniqkey }, ' Abortando... conexão já em andamento');
         return res?.status(200).json({
             error: 'Este QR Code já está gerado. Favor realizar a leitura',
@@ -273,6 +274,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     };
 
     const destroy = async (logout = true) => {
+        logger.info('destruindo sessão', 'Fechar socket?:' + logout, uniqkey, session);
         try {
             await Promise.all([logout && sock.ws.close(), sock.ev.removeAllListeners(), sock.logout() /* , delete sock, (sock = null) */]);
         } catch (e) {
@@ -291,7 +293,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         }
     };
     const handleConnectionClose = async () => {
-        logger.debug({ uniqkey, session }, ' A conexão foi fechada');
+        logger.info({ uniqkey, session }, ' A conexão foi fechada');
 
         /* 
         webhook connection close
@@ -320,7 +322,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         }
 
         if (!restartRequired) {
-            logger.info({ attempts: retries.get(session) ?? 1, session, uniqkey }, 'Reconnecting...');
+            logger.info({ attempts: retries.get(session) ?? 1, session, uniqkey }, 'Reconectando sessão...');
         }
         console.log('[LinxSys-Baileys]:: Reiniciando a conexão');
         setTimeout(() => this.StartSession(session, uniqkey, res), restartRequired ? 0 : WA_RECONNECT_INTERVAL);
@@ -335,8 +337,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             try {
                 qr = await toDataURL(connectionState.qr);
             } catch (e) {
-                logger.error(e, 'An error occured during QR generation');
-                console.log('[LinxSys-Baileys]:: Houve um erro na geração do QRCode', uniqkey);
+                logger.error(e, 'Ocorreu um erro durante a geração do qrcode');
+                console.log('[LinxSys-Baileys]:: Houve um erro na geração do QRCode', uniqkey, session);
                 /* 
                 webhook QRCode fail
                 */
@@ -346,7 +348,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
                 return;
             }
             if (qr && currentGenerations >= WA_MAX_QR_GENERATION) {
-                console.log('[LinxSys-Baileys]:: Geração máxima de QRCodes atingidas, favor abrir uma nova sessão', uniqkey);
+                console.log('[LinxSys-Baileys]:: Geração máxima de QRCodes atingidas, favor abrir uma nova sessão', uniqkey, session);
+                logger.info({ uniqkey, session }, 'Geração máxima de QRCodes atingidas, favor abrir uma nova sessão');
                 /* 
                webhook QRCode max generated
                */
@@ -377,7 +380,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         }
     };
     const handleConnectionOpen = async () => {
-        logger.debug({ uniqkey }, ' A conexão foi está aberta');
+        logger.info({ uniqkey }, ' A conexão foi está aberta');
         console.log('[LinxSys-Baileys]:: Whatsapp Conectado ->', jidNormalizedUser(sock.user.id));
 
         let foto;
@@ -410,6 +413,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
 
         inConnection.delete(uniqkey);
         console.log('[LinxSys-Baileys]:: A conexão está pronta para o uso');
+        logger.info({ uniqkey, session }, 'Conexão pronta para o uso');
         /* 
         webhook Connection Open
         */
@@ -429,8 +433,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     ReadStore(session, uniqkey, connStore);
     storeSaveId.set(uniqkey, session);
 
-    logger.debug({ session }, `using WA v${version.join('.')}, isLatest: ${isLatest}`);
-    logger.debug({ session }, ' Carregando store da conexão');
+    logger.debug({ uniqkey, session }, `using WA v${version.join('.')}, isLatest: ${isLatest}`);
+    logger.info({ uniqkey, session }, ' Carregando store da conexão');
 
     const sock = makeWASocket({
         version,
@@ -492,6 +496,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
+        logger.debug({ update }, ' connection.update');
         const { connection } = update;
         connectionState = update;
 
@@ -505,6 +510,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     });
 
     sock.ev.on('messages.upsert', async (upsert) => {
+        logger.debug({ upsert }, ' messages.upsert');
         const chat = {
             event: 'onmessage',
             session: session,

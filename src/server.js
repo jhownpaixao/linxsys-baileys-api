@@ -3,20 +3,9 @@ const path = require('path');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const logger = require('./service/logger.js').default;
-/* const moment = require('moment'); */
 const cors = require('cors');
-/* const https = require('https');
-const fs = require('fs'); */
 const { Welcome } = require('./utils/welcome');
-const pinoHttp = require('pino-http')({
-    logger
-    // serializers: {
-    //    req(req) {
-    //      req.body = req.raw.body;
-    //      return req;
-    //    },
-    //  },
-});
+const pinoHttp = require('pino-http')({ logger });
 const app = express();
 const publicDirectory = path.join(__dirname, './public');
 const porta = process.env.APP_PORT || 4000;
@@ -36,7 +25,6 @@ app.use(
 );
 process.on('uncaughtException', function (error) {
     logger.error('erro logger', error.stack);
-    console.log('erro console', error);
 });
 
 app.use('/', require('./routes'));

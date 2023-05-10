@@ -30,7 +30,8 @@ const AutoReconnect = async () => {
     const sessions = Store.getall();
     for (const [session, data] of sessions) {
         if (!data.connection) continue;
-        console.log('Iniciando Auto Conexão para: ', data.uniqkey);
+        console.log('Iniciando Auto Conexão para: ', data.uniqkey, data.name);
+        logger.info(data, 'Conexão automática');
         await StartSession(session, data.connection.id, null, data.connection.webhook);
     }
 };
@@ -42,11 +43,12 @@ exports.SessionAdd = async (req, res) => {
             message: 'Parametros incorretos'
         });
     }
-
+    logger.debug(req.body, 'Criando sessão');
     const uniqkey = crypto.randomUUID();
 
     const token = jwt.sign({ session, uniqkey }, JWT_SECRET);
     if (Store.has(session)) {
+        logger.error(req.body, 'Não foi possíecl criar... Sessão já existe');
         return res.status(406).json({
             status: false,
             error: 'A sessão já existe'
@@ -56,6 +58,7 @@ exports.SessionAdd = async (req, res) => {
         uniqkey,
         token
     });
+    logger.debug(req.body, 'Sessão criada');
     return res.status(200).json({
         status: true,
         session,
@@ -67,28 +70,22 @@ exports.SessionStart = async (req, res) => {
     const { session } = req.params;
     console.log('session', session);
     const { webhook } = req.body;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || session.includes(':')) {
+        logger.debug({ session, webhook }, 'Erro ao iniciar: requisição incompleta');
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
-    }
-    if (!Store.has(decoded.session)) {
+    if (!Store.has(req.decoded.session)) {
+        logger.debug({ session, webhook }, 'Erro ao iniciar: A sessão não existe');
         return res.status(406).json({
             error: 'A sessão não existe'
         });
     }
-    const sessionData = await Store.get(decoded.session);
+    const sessionData = await Store.get(req.decoded.session);
 
     if (onlineSessions.get(sessionData.uniqkey)) {
+        logger.debug({ session, webhook }, 'Erro ao iniciar: A sessão já está conectada');
         return res.status(406).json({
             error: 'A sessão já está conectada',
             connection: sessionData.connection
@@ -101,29 +98,19 @@ exports.SessionStart = async (req, res) => {
 
 exports.SessionDelete = async (req, res) => {
     const { session } = req.params;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
-    }
-
-    if (!Store.has(decoded.session)) {
+    if (!Store.has(req.decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
         });
     }
-    const sessionData = await Store.get(decoded.session);
+    const sessionData = await Store.get(req.decoded.session);
 
-    if (sessionData.uniqkey !== decoded.uniqkey) {
+    if (sessionData.uniqkey !== req.decoded.uniqkey) {
         return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
@@ -132,7 +119,7 @@ exports.SessionDelete = async (req, res) => {
         await online.exclude();
     }
 
-    const exclude = Store.exclude(decoded.session);
+    const exclude = Store.exclude(req.decoded.session);
     if (exclude) {
         return res.status(200).json({ status: true, message: 'Sessão excluída' });
     }
@@ -141,29 +128,19 @@ exports.SessionDelete = async (req, res) => {
 
 exports.SessionDesconnect = async (req, res) => {
     const { session } = req.params;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
-    }
-
-    if (!Store.has(decoded.session)) {
+    if (!Store.has(req.decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
         });
     }
-    const sessionData = await Store.get(decoded.session);
+    const sessionData = await Store.get(req.decoded.session);
 
-    if (sessionData.uniqkey !== decoded.uniqkey) {
+    if (sessionData.uniqkey !== req.decoded.uniqkey) {
         return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
@@ -178,26 +155,17 @@ exports.SessionDesconnect = async (req, res) => {
 
 exports.SessionStatus = async (req, res) => {
     const { session } = req.params;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log('session', session);
+
     if (!session || session.includes(':')) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
-    }
-    if (!Store.has(decoded.session)) {
+    if (!Store.has(req.decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
         });
     }
-    const sessionData = await Store.get(decoded.session);
+    const sessionData = await Store.get(req.decoded.session);
 
     if (onlineSessions.get(sessionData.uniqkey)) {
         return res.status(200).json({
@@ -215,14 +183,13 @@ exports.SessionStatus = async (req, res) => {
 exports.SendText = async (req, res) => {
     const { session } = req.params;
     const { number, body, simulation } = req.body;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !body) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
 
     if (simulation) simulation.type = 'text';
-    const verify = await verifyRequestToSendMessage(token, number);
+    const verify = await verifyRequestToSendMessage(req.decoded, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
     try {
@@ -251,12 +218,11 @@ exports.SendImage = async (req, res) => {
     const { session } = req.params;
     const { number, body } = req.body;
     let { simulation } = req.body;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !body || !req.file) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
-    const verify = await verifyRequestToSendMessage(token, number);
+    const verify = await verifyRequestToSendMessage(req.decoded, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
     if (simulation) {
@@ -287,13 +253,12 @@ exports.SendAudio = async (req, res) => {
     const { session } = req.params;
     const { number, recorded } = req.body;
     let { simulation } = req.body;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number || !req.file) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
     const ptt = !!(recorded && recorded == 'true');
-    const verify = await verifyRequestToSendMessage(token, number);
+    const verify = await verifyRequestToSendMessage(req.decoded, number);
     if (!verify.process) return res.status(verify.code).json({ error: verify.msg, status: false });
 
     if (simulation) {
@@ -323,38 +288,28 @@ exports.SendAudio = async (req, res) => {
 
 exports.ValidateNumber = async (req, res) => {
     const { session, number } = req.params;
-    const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!session || !number) {
         return res.status(400).json({ error: 'Requisição incompleta' });
     }
-    if (!token) {
-        return res.status(403).json({ error: 'Nenhuma credencial encontrada' });
-    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (!decoded) {
-        return res.status(403).json({ error: 'Autorização inválida' });
-    }
-
-    if (!Store.has(decoded.session)) {
+    if (!Store.has(req.decoded.session)) {
         return res.status(406).json({
             error: 'A sessão não existe'
         });
     }
 
-    const sessionData = await Store.get(decoded.session);
-    if (sessionData.uniqkey !== decoded.uniqkey) {
+    const sessionData = await Store.get(req.decoded.session);
+    if (sessionData.uniqkey !== req.decoded.uniqkey) {
         return res.status(403).json({ error: 'A autorização é inválida para esta sessão, por favor atualize o token' });
     }
 
-    const connection = onlineSessions.get(decoded.uniqkey);
+    const connection = onlineSessions.get(req.decoded.uniqkey);
     if (!connection) {
         return res.status(406).json({ error: 'Esta sessão não está conectada' });
     }
 
-    const inProcess = inConnection.get(decoded.uniqkey);
+    const inProcess = inConnection.get(req.decoded.uniqkey);
     if (inProcess) {
         return res.status(406).json({ error: 'Esta conexão ainda não está pronta', status: false });
     }
@@ -374,6 +329,23 @@ exports.ValidateNumber = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(200).json({ exists: false, jid: 'unknow' });
+    }
+};
+
+exports.ValidateToken = async (req, res, next) => {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const { session } = req.params;
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (!decoded) {
+            logger.debug({ session }, 'Erro ao iniciar: Autorização inválida');
+            return res.status(401).json({ error: 'Autorização inválida' });
+        }
+        req.decoded = decoded;
+        next();
+    } catch (error) {
+        logger.error({ session, token }, 'Erro ao iniciar: Autorização inválida');
+        return res.status(401).json({ error: 'O token e invalido' });
     }
 };
 
@@ -531,6 +503,7 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulation = false) {
 
     const connection = onlineSessions.get(uniqkey);
     if (!connection) {
+        logger.error({ uniqkey, jid }, 'erro ao enviar a mensagem. A sessao nao esta disponivel');
         return false;
     }
 
@@ -585,27 +558,23 @@ const verifyAuthentication = async (token) => {
     response.process = true;
     return response;
 };
-const verifyRequestToSendMessage = async (token, phone) => {
+const verifyRequestToSendMessage = async (auth, phone) => {
     let response = {
         code: 0,
         msg: '',
         process: false,
-        auth: {},
+        auth: auth,
         data: {}
     };
 
-    const auth = await verifyAuthentication(token);
-    if (!auth.process) return auth;
-    response.auth = auth.data;
-
-    const connection = onlineSessions.get(auth.data.uniqkey);
+    const connection = onlineSessions.get(auth.uniqkey);
     if (!connection) {
         response.code = 406;
         response.msg = 'Esta sessão não está conectada';
         return response;
     }
 
-    const inProcess = inConnection.get(auth.data.uniqkey);
+    const inProcess = inConnection.get(auth.uniqkey);
     if (inProcess) {
         response.code = 406;
         response.msg = 'Esta conexão ainda não está pronta';
