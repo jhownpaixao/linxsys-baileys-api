@@ -490,7 +490,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     });
 
     connStore?.bind(sock.ev);
-    sessions.set(uniqkey, { ...sock, destroy, connStore, session });
+    sessions.set(uniqkey, { ...sock, destroy, exclude, connStore, session });
 
     /* ESCUTA DE EVENTOS */
     sock.ev.on('creds.update', saveCreds);
