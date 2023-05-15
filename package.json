@@ -11,9 +11,9 @@
     "author": "Jhonnata Paixão",
     "license": "ISC",
     "dependencies": {
-        "@adiwajshing/baileys": "^5.0.0",
         "@adiwajshing/keyed-db": "^0.2.4",
         "@hapi/boom": "^10.0.1",
+        "@whiskeysockets/baileys": "^6.0.0",
         "bcryptjs": "^2.4.3",
         "cookie-parser": "^1.4.6",
         "cors": "^2.8.5",

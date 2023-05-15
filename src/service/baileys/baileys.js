@@ -1,4 +1,4 @@
-const makeWASocket = require('@adiwajshing/baileys').default;
+const makeWASocket = require('@whiskeysockets/baileys').default;
 const {
     DisconnectReason,
     isJidBroadcast,
@@ -8,7 +8,7 @@ const {
     fetchLatestBaileysVersion,
     useMultiFileAuthState,
     Browsers
-} = require('@adiwajshing/baileys');
+} = require('@whiskeysockets/baileys');
 const path = require('path');
 const fs = require('fs');
 const { toDataURL } = require('qrcode');

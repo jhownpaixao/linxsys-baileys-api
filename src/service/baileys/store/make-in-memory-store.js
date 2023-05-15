@@ -13,7 +13,7 @@ const {
     toNumber,
     updateMessageWithReceipt,
     updateMessageWithReaction
-} = require('@adiwajshing/baileys');
+} = require('@whiskeysockets/baileys');
 const make_ordered_dictionary_1 = __importDefault(require('./make-ordered-dictionary'));
 const waChatKey = (pin) => ({
     key: (c) =>
