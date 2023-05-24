@@ -3,6 +3,7 @@ const MainController = require('../controller/MainController');
 const router = express.Router();
 
 /* Session */
+router.get('/', MainController.ValidateToken, MainController.SessionList);
 router.post('/create-session', MainController.SessionAdd);
 router.post('/:session/start-session', MainController.ValidateToken, MainController.SessionStart);
 router.get('/:session/check-connection-session', MainController.ValidateToken, MainController.SessionStatus);

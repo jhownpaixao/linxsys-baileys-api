@@ -36,6 +36,25 @@ const AutoReconnect = async () => {
     }
 };
 
+exports.SessionList = async (req, res) => {
+    if (!Store.has(req.decoded.session)) {
+        logger.debug('Erro ao buscar a sessao: O token atual é inválido');
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const connections = {};
+    for (const session of onlineSessions.values()) {
+        if (!session.data) continue;
+        connections[session.session] = session.data;
+    }
+
+    res.status(200).json({
+        online: Object.keys(connections).length,
+        sessions: connections
+    });
+};
+
 exports.SessionAdd = async (req, res) => {
     const { session } = req.body;
     if (!session || session.includes(':')) {

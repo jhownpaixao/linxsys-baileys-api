@@ -259,7 +259,11 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     if (qr) {
         console.log('Esta conexão não pode ser realizada, pois uma instancia ainda está se conectando', session);
         logger.debug({ session, uniqkey }, ' Abortando... conexão já em andamento');
-        return res?.status(200).json({
+        sendResponse({
+            error: 'Este QR Code já está gerado. Favor realizar a leitura',
+            qr
+        });
+        return sendResponse({
             error: 'Este QR Code já está gerado. Favor realizar a leitura',
             qr
         });
@@ -306,7 +310,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         const loggedout = code === DisconnectReason.loggedOut;
         console.log(`[LinxSys-Baileys]:: Conexão fechada-> ${code}|${connectionState}|${doNotReconnect}`);
         if (loggedout || doNotReconnect) {
-            res?.status(200).json({
+            sendResponse({
                 error: 'A sessão não pode ser reconectada, favor escanear o QRCode novamente'
             });
             console.log('[LinxSys-Baileys]:: A sessão não pode ser reconectada, favor escanear o QRCode novamente');
@@ -342,9 +346,12 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
                 /* 
                 webhook QRCode fail
                 */
-                res?.status(500).json({
-                    error: 'Houve um erro durante a geração do QR Code'
-                });
+                sendResponse(
+                    {
+                        error: 'Houve um erro durante a geração do QR Code'
+                    },
+                    500
+                );
                 return;
             }
             if (qr && currentGenerations >= WA_MAX_QR_GENERATION) {
@@ -353,7 +360,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
                 /* 
                webhook QRCode max generated
                */
-                res?.status(200).json({
+                sendResponse({
                     error: 'Numero máximo de QR Codes foi atingido'
                 });
 
@@ -363,7 +370,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             }
             if (qr) qrgenerations.set(uniqkey, currentGenerations + 1);
 
-            res?.status(200).json({
+            sendResponse({
                 message: 'Leia o qrcode',
                 qr
             });
@@ -409,7 +416,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             sendMessageWTyping: async (simulation, remoteJid, msg, replay) =>
                 await sendMessageWTyping(simulation, sock, msg, remoteJid, replay)
         };
-        sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils });
+        sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils, data: sessionData.connection });
 
         inConnection.delete(uniqkey);
         console.log('[LinxSys-Baileys]:: A conexão está pronta para o uso');
@@ -418,10 +425,18 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         webhook Connection Open
         */
 
-        res?.status(200).json({
+        sendResponse({
             message: 'Conectado',
             connection: sessionData.connection
         });
+    };
+    const sendResponse = async (data, code = 200) => {
+        try {
+            if (!res) throw new Error('O http response já foi respondido');
+            res.status(code).json(data);
+        } catch (error) {
+            logger.debug(error);
+        }
     };
 
     const tokenpath = path.join(__dirname, `./cache/${uniqkey}/token/conn_${session}`);
