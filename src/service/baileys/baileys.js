@@ -308,7 +308,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         const restartRequired = code === DisconnectReason.restartRequired;
         const doNotReconnect = !shouldReconnect(session);
         const loggedout = code === DisconnectReason.loggedOut;
-        console.log(`[LinxSys-Baileys]:: Conexão fechada-> ${code}|${connectionState}|${doNotReconnect}`);
+        console.log(`[LinxSys-Baileys]:: Conexão fechada-> ${code}|${connectionState}|${doNotReconnect}|${session}`);
         if (loggedout || doNotReconnect) {
             sendResponse({
                 error: 'A sessão não pode ser reconectada, favor escanear o QRCode novamente'
