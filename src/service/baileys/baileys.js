@@ -31,7 +31,7 @@ const WA_MAX_RECONNECT_RETRIES = process.env.MAX_RECONNECT_RETRIES || 3;
 const WA_MAX_QR_GENERATION = process.env.SSE_MAX_QR_GENERATION || 3;
 
 // save every 10s
-setInterval(async () => {
+/* setInterval(async () => {
     let c_conns = 0;
     for (const [uniqkey, session] of sessions.entries()) {
         if (!session.connStore) {
@@ -43,6 +43,11 @@ setInterval(async () => {
         c_conns++;
     }
     console.log(`[LinxSys-Baileys]:: Stores atualizados -> Sessões: ${storeReadedId.size}, Conexões: ${c_conns}`);
+}, 10000); */
+
+//monitor
+setInterval(async () => {
+    console.log(`[LinxSys-Baileys]:: Monitor -> Sessões: ${sessions.size}`);
 }, 10000);
 
 /**
@@ -253,7 +258,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     if (webhook) console.log('Session starting with webhook ', webhook);
     logger.info({ session, webhook, uniqkey }, 'Iniciando sessão');
     let connectionState = { connection: 'close' };
-    const connStore = makeInMemoryStore({ logger });
+    //const connStore = makeInMemoryStore({ logger });
     let qr = inConnection.get(uniqkey);
 
     if (qr) {
@@ -416,7 +421,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             sendMessageWTyping: async (simulation, remoteJid, msg, replay) =>
                 await sendMessageWTyping(simulation, sock, msg, remoteJid, replay)
         };
-        sessions.set(uniqkey, { sock, destroy, exclude, connStore, session, utils, data: sessionData.connection });
+        sessions.set(uniqkey, { sock, destroy, exclude, /* connStore, */ session, utils, data: sessionData.connection });
 
         inConnection.delete(uniqkey);
         console.log('[LinxSys-Baileys]:: A conexão está pronta para o uso');
@@ -445,7 +450,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState(tokenpath);
 
-    ReadStore(session, uniqkey, connStore);
+    //ReadStore(session, uniqkey, connStore);
     storeSaveId.set(uniqkey, session);
 
     logger.debug({ uniqkey, session }, `using WA v${version.join('.')}, isLatest: ${isLatest}`);
@@ -475,10 +480,10 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         },
         // implement to handle retries
         getMessage: async (key) => {
-            if (connStore) {
+            /*  if (connStore) {
                 const msg = await connStore.loadMessage(key.remoteJid, key.id);
                 return msg?.message || undefined;
-            }
+            } */
 
             // only if store is present
             return {
@@ -504,8 +509,8 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
         }
     });
 
-    connStore?.bind(sock.ev);
-    sessions.set(uniqkey, { ...sock, destroy, exclude, connStore, session });
+    //connStore?.bind(sock.ev);
+    sessions.set(uniqkey, { ...sock, destroy, exclude, /* connStore, */ session });
 
     /* ESCUTA DE EVENTOS */
     sock.ev.on('creds.update', saveCreds);
