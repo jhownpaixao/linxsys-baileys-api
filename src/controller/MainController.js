@@ -118,7 +118,6 @@ exports.SessionAdd = async (req, res) => {
 
 exports.SessionStart = async (req, res) => {
     const { session } = req.params;
-    console.log('session', session);
     const { webhook } = req.body;
 
     if (!session || session.includes(':')) {
@@ -271,7 +270,6 @@ exports.SendImage = async (req, res) => {
     let { simulation } = req.body;
 
     if (!session || !number || !body || !req.file) {
-        console.log(session, number, body, req.file);
         logger.error({ session, number, body, arquivo: req.file }, 'Nao foi possivel enviar a imagem Requisiçao incompleta');
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
@@ -306,7 +304,6 @@ exports.SendAudio = async (req, res) => {
     const { session } = req.params;
     const { number, recorded } = req.body;
     let { simulation } = req.body;
-    console.log(simulation);
     if (!session || !number || !req.file) {
         return res.status(400).json({ error: 'Requisição incompleta', status: false });
     }
