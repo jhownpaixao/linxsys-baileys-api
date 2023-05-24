@@ -22,6 +22,14 @@ const storage = multer.diskStorage({
         cb(null, name);
     }
 });
+
+/**
+ * Description placeholder
+ * @date 24/05/2023 - 11:09:25
+ *
+ * @type {Map<string,number>}
+ */
+const SessionProcessError = new Map();
 exports.upload = multer({ storage });
 
 global.webhook = new webhooks({ db: {} });
@@ -34,6 +42,11 @@ const AutoReconnect = async () => {
         logger.info(data, 'Conexão automática');
         await StartSession(session, data.connection.id, null, data.connection.webhook);
     }
+};
+
+const RegisterError = (session) => {
+    const old = SessionProcessError.get(session) || 0;
+    SessionProcessError.set(session, old + 1);
 };
 
 exports.SessionList = async (req, res) => {
@@ -52,6 +65,24 @@ exports.SessionList = async (req, res) => {
     res.status(200).json({
         online: Object.keys(connections).length,
         sessions: connections
+    });
+};
+
+exports.SessionErros = async (req, res) => {
+    if (!Store.has(req.decoded.session)) {
+        logger.debug('Erro ao buscar a sessao: O token atual é inválido');
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const connections = {};
+    for (const [key, session] of SessionProcessError.entries()) {
+        if (!session.data) continue;
+        connections[key] = session;
+    }
+
+    res.status(200).json({
+        errors: connections
     });
 };
 
@@ -214,6 +245,7 @@ exports.SendText = async (req, res) => {
     try {
         const send = await PrepareAndSendMessage(
             verify.auth.uniqkey,
+            session,
             verify.data.jid,
             {
                 message: {
@@ -228,7 +260,7 @@ exports.SendText = async (req, res) => {
         }
         return res.status(200).json({ message: 'Mensagem enviada', status: true });
     } catch (error) {
-        console.log(error);
+        logger.error(error);
         return res.status(500).json({ error: 'Não foi possível enviar a mensagem', status: false });
     }
 };
@@ -260,7 +292,7 @@ exports.SendImage = async (req, res) => {
     };
 
     try {
-        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj, simulation);
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, session, verify.data.jid, msgObj, simulation);
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
@@ -297,7 +329,7 @@ exports.SendAudio = async (req, res) => {
     };
 
     try {
-        const send = await PrepareAndSendMessage(verify.auth.uniqkey, verify.data.jid, msgObj, simulation);
+        const send = await PrepareAndSendMessage(verify.auth.uniqkey, session, verify.data.jid, msgObj, simulation);
         if (!send) {
             return res.status(406).json({ error: 'Não foi possível enviar a mensagem' });
         }
@@ -348,7 +380,7 @@ exports.ValidateNumber = async (req, res) => {
         }
         return res.status(200).json({ exists: true, jid: result.jid });
     } catch (error) {
-        console.log(error);
+        logger.error(error);
         return res.status(200).json({ exists: false, jid: 'unknow' });
     }
 };
@@ -379,7 +411,7 @@ exports.ValidateToken = async (req, res, next) => {
  * @param { object } msg Objeto de mensagem à ser enviado
  * @param { boolean | Array<String> } simulation Para siumlar o evento Typing (HUMANIZAR)
  */
-async function PrepareAndSendMessage(uniqkey, jid, msg, simulation = false) {
+async function PrepareAndSendMessage(uniqkey, session, jid, msg, simulation = false) {
     /* let msg = {
        type: 'text',
        title: '',
@@ -538,7 +570,7 @@ async function PrepareAndSendMessage(uniqkey, jid, msg, simulation = false) {
         return true;
     } catch (error) {
         logger.error({ msg_send, jid, quoted, error }, 'erro ao enviar a mensagem');
-        console.log(error);
+        RegisterError(session);
         return false;
     }
 }
