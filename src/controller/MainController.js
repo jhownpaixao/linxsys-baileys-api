@@ -651,5 +651,5 @@ const verifyRequestToSendMessage = async (auth, phone) => {
 (async () => {
     await Store.init();
     global.Store = Store;
-    AutoReconnect();
+    //AutoReconnect();
 })();
