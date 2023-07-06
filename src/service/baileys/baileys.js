@@ -297,8 +297,10 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             inConnection.delete(uniqkey);
 
             let sessionData = await global.Store.get(session);
-            if (sessionData) delete sessionData.connection;
-            global.Store.set(session, sessionData);
+            if (sessionData) {
+                delete sessionData.connection;
+                global.Store.set(session, sessionData);
+            }
         }
     };
     const handleConnectionClose = async () => {
