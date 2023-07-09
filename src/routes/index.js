@@ -6,6 +6,7 @@ const router = express.Router();
 router.get('/', MainController.ValidateToken, MainController.SessionList);
 router.get('/error', MainController.ValidateToken, MainController.SessionErros);
 router.post('/create-session', MainController.SessionAdd);
+router.post('/:session/webhook', MainController.ValidateToken, MainController.SessionWebhook);
 router.post('/:session/start-session', MainController.ValidateToken, MainController.SessionStart);
 router.get('/:session/check-connection-session', MainController.ValidateToken, MainController.SessionStatus);
 router.get('/:session/validate-number/:number', MainController.ValidateToken, MainController.ValidateNumber);

@@ -40,7 +40,7 @@ const AutoReconnect = async () => {
         if (!data.connection) continue;
         console.log('Iniciando Auto Conexão para: ', session, ` | ${data.connection.nome}(${data.connection.numero})`);
         logger.info(data, 'Conexão automática');
-        await StartSession(session, data.connection.id, null, data.connection.webhook);
+        await StartSession(session, data.connection.id, null, data.webhook);
     }
 };
 
@@ -87,7 +87,7 @@ exports.SessionErros = async (req, res) => {
 };
 
 exports.SessionAdd = async (req, res) => {
-    const { session } = req.body;
+    const { session, webhook } = req.body;
     if (!session || session.includes(':')) {
         return res.status(200).json({
             message: 'Parametros incorretos'
@@ -106,14 +106,48 @@ exports.SessionAdd = async (req, res) => {
     }
     Store.set(session, {
         uniqkey,
-        token
+        token,
+        webhook
     });
     logger.debug(req.body, 'Sessão criada');
     return res.status(200).json({
         status: true,
         session,
-        token
+        token,
+        webhook
     });
+};
+
+exports.SessionWebhook = async (req, res) => {
+    const { session } = req.params;
+    const { webhook } = req.body;
+
+    if (!session || session.includes(':')) {
+        logger.debug({ session, webhook }, 'Erro ao editar: requisição incompleta');
+        return res.status(400).json({ error: 'Requisição incompleta' });
+    }
+
+    if (!Store.has(req.decoded.session)) {
+        logger.debug({ session, webhook }, 'Erro ao editar: A sessão não existe');
+        return res.status(406).json({
+            error: 'A sessão não existe'
+        });
+    }
+    const sessionData = await Store.get(req.decoded.session);
+
+    Store.set(session, {
+        uniqkey: sessionData.uniqkey,
+        token: sessionData.token,
+        webhook
+    });
+
+    const online = onlineSessions.get(sessionData.uniqkey);
+    if (online) {
+        await online.destroy();
+        StartSession(session, sessionData.uniqkey, res, webhook);
+    }
+
+    return res.status(200).json({ statu: true, message: 'Webhook atualizado' });
 };
 
 exports.SessionStart = async (req, res) => {
@@ -142,7 +176,7 @@ exports.SessionStart = async (req, res) => {
     }
     /* onlineSessions
     inConnection */
-    StartSession(session, sessionData.uniqkey, res, webhook);
+    StartSession(session, sessionData.uniqkey, res, sessionData.webhook);
 };
 
 exports.SessionDelete = async (req, res) => {

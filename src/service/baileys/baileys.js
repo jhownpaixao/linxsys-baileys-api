@@ -412,8 +412,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             id: uniqkey,
             nome: sock.user.name,
             numero: numero,
-            image: foto,
-            webhook: webhook
+            image: foto
         };
 
         global.Store.set(session, sessionData);
