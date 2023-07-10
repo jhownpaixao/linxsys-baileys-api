@@ -328,7 +328,7 @@ exports.StartSession = async (session, uniqkey, res = null, webhook = null) => {
             */
 
             if (loggedout && fs.existsSync(tokenpath)) fs.rmdirSync(tokenpath, { recursive: true, force: true });
-            destroy(loggedout);
+            exclude(loggedout);
             return;
         }
 
